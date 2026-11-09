@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ursly — Analyse non verbale | La vue et l'ouïe, à l'écoute du corps</title>
+<meta name="description" content="Ursly Non-verbal : la vue et l'ouïe d'Ursly appliquées aux signaux de tension pendant qu'une personne parle. Aperçu en temps réel, analyse complète après coup. Un indice de tension mesuré — jamais un verdict de mensonge.">
+<style>
+  :root { --bg:#0a1220; --panel:#101c30; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --line:#1d3350; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+  a { color:var(--cyan); }
+  .hero { position:relative; min-height:92vh; display:flex; align-items:flex-end; overflow:hidden; }
+  .hero video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .hero .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.42) 0%, rgba(10,18,32,.55) 55%, var(--bg) 100%); }
+  .hero .inner { position:relative; max-width:980px; margin:0 auto; padding:120px 20px 54px; width:100%; }
+  .kicker { letter-spacing:.28em; font-size:13px; color:var(--cyan); font-weight:700; }
+  h1 { font-size:clamp(30px, 5.4vw, 54px); line-height:1.08; margin:14px 0 12px; max-width:16em; }
+  .lead { font-size:clamp(16px, 2.2vw, 20px); color:#cfe2f0; line-height:1.55; max-width:42em; }
+  .cta { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+  .btn { display:inline-block; padding:12px 20px; border-radius:12px; border:1px solid #2b4a73; color:var(--ink); text-decoration:none; font-weight:600; background:rgba(16,28,48,.72); }
+  .btn.primary { background:var(--cyan); color:#04222f; border-color:var(--cyan); }
+  .note { font-size:12.5px; color:var(--dim); margin-top:14px; }
+  main { max-width:980px; margin:0 auto; padding:30px 20px 60px; display:grid; gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
+  .card h2 { margin:0 0 10px; font-size:21px; }
+  .card p, .card li { line-height:1.6; color:#d5e5f2; font-size:15.5px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .tag { display:inline-block; font-size:12px; letter-spacing:.12em; color:var(--cyan); border:1px solid #2b4a73; padding:3px 9px; border-radius:999px; margin-bottom:8px; }
+  table { width:100%; border-collapse:collapse; font-size:14.5px; }
+  th, td { text-align:left; padding:8px 9px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.5; }
+  th { color:var(--dim); font-weight:600; }
+  .scenes { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
+  .scene { border:1px solid var(--line); border-radius:12px; padding:13px; background:#0d1828; }
+  .scene b { display:block; margin-bottom:4px; }
+  .scene span { font-size:13px; color:var(--dim); line-height:1.5; display:block; }
+  footer { max-width:980px; margin:0 auto; padding:0 20px 46px; color:var(--dim); font-size:13px; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <video autoplay muted loop playsinline poster="assets/poster.jpg">
+    <source src="assets/hero-nonverbal-15s.mp4" type="video/mp4">
+  </video>
+  <div class="veil"></div>
+  <div class="inner">
+    <div class="kicker">URSLY · ANALYSE NON VERBALE</div>
+    <h1>La vue et l'ouïe, à l'écoute de ce que le corps dit.</h1>
+    <p class="lead">Pendant qu'une personne parle, son visage, son regard et sa voix émettent des signaux
+    qu'elle ne contrôle pas entièrement. Ursly Non-verbal les lit en continu et les transforme en un
+    <b>indice de tension</b> — mesuré, daté, avec son niveau de confiance. Jamais un verdict de mensonge.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://stonyp90.github.io/truthlens/apps/web/live.html">Essayer l'aperçu temps réel</a>
+      <a class="btn" href="https://stonyp90.github.io/truthlens/apps/web/test.html">Le Test du jour — vrais humains</a>
+    </div>
+    <div class="note">Vidéo d'illustration : les pourcentages à l'écran montrent l'interface d'analyse, pas des mesures réelles sur ces personnes.</div>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Le concept</h2>
+    <p>Le non-verbal, c'est tout ce qui se dit sans les mots : la tension d'un visage, un regard qui décroche,
+    un figement soudain, une voix qui monte. Ursly mobilise ici <b>deux de ses cinq sens</b> —
+    la <b>vue</b> et l'<b>ouïe</b> — et les applique à une question précise : comment la tension d'une personne
+    évolue-t-elle pendant qu'elle parle ?</p>
+    <p><b>La vue</b> lit le visage : mouvements de tête, clignements, direction du regard, micro-mouvements
+    répétés, figements — et même le <b>pouls à distance</b> (rPPG), extrait des variations de couleur de la peau
+    invisibles à l'œil. <b>L'ouïe</b> lit la voix : prosodie, hésitations, débit, tension vocale, et la cohérence
+    de ce qui est dit. Le <b>mouvement</b> du corps (posture, gestuelle, figement) est lui aussi mesuré —
+    comme un signal, pas comme un sens : chez Ursly, les sens sont cinq, et le mouvement n'en fait pas partie.</p>
+    <p>Chaque signal est comparé à la <b>référence propre de la personne</b> (sa baseline des premières secondes),
+    puis fusionné en un indice de 5 à 95, toujours accompagné de sa confiance. Quand l'image ne permet pas de
+    conclure — visage trop petit, trop sombre, animation — le système s'abstient au lieu d'inventer un score.</p>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <span class="tag">MODE 1 · EN DIRECT</span>
+      <h2>Le temps réel : un aperçu</h2>
+      <p>Pendant l'échange, un calque affiche l'indice courant, sa confiance et l'humeur estimée, directement
+      sur la vidéo ou la webcam. C'est un <b>aperçu</b> : les signaux rapides (mouvement, figement, répétitions)
+      sont lus à chaud, avec la latence d'un navigateur. Utile pour sentir le moment où la tension monte —
+      pas pour conclure.</p>
+    </section>
+    <section class="card">
+      <span class="tag">MODE 2 · APRÈS COUP</span>
+      <h2>L'analyse complète : la mesure</h2>
+      <p>Sur l'enregistrement, le moteur prend son temps : pouls à distance sur toute la durée, voix analysée
+      phrase par phrase, contenu verbal confronté à ce qui est vérifiable, timeline seconde par seconde et
+      rapport exportable. C'est l'analyse <b>optimale</b> — celle qui sert à mesurer, comparer et améliorer
+      le modèle.</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Les deux modes, côte à côte</h2>
+    <table>
+      <tr><th></th><th>Temps réel (aperçu)</th><th>Après coup (complet)</th></tr>
+      <tr><td><b>Signaux</b></td><td>Mouvement, figement, répétitions</td><td>+ pouls rPPG, voix, contenu verbal, baseline complète</td></tr>
+      <tr><td><b>Latence</b></td><td>Immédiate, dans le navigateur</td><td>Différée, côté serveur</td></tr>
+      <tr><td><b>Usage</b></td><td>Sentir la tension pendant l'échange</td><td>Mesurer, documenter, entraîner le modèle</td></tr>
+      <tr><td><b>Confiance</b></td><td>Indiquée, plus basse</td><td>Indiquée, plus haute — ou abstention</td></tr>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Où ça sert</h2>
+    <div class="scenes">
+      <div class="scene"><b>L'entretien</b><span>Deux personnes qui se parlent : suivre la tension réponse par réponse.</span></div>
+      <div class="scene"><b>Le poker</b><span>Le bluff est un métier : lire le figement et la fausse détente autour de la table.</span></div>
+      <div class="scene"><b>L'appel vidéo</b><span>Les mêmes signaux, à travers une webcam — réunions, entrevues, témoignages.</span></div>
+      <div class="scene"><b>La négociation</b><span>Voir le moment où une proposition fait monter la tension, des deux côtés.</span></div>
+      <div class="scene"><b>L'entrevue publique</b><span>Conférences de presse et plateaux : la cohérence entre le discours et le visage.</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Et les autres sens ?</h2>
+    <p>La question est légitime : si le corps trahit la tension, pourquoi s'arrêter aux yeux et aux oreilles ?
+    Voici ce que dit la recherche, sens par sens.</p>
+    <p><b>L'odorat — la frontière crédible.</b> Le stress modifie les composés organiques volatils de la sueur et
+    de l'haleine. Des chiens distinguent l'odeur du stress de l'odeur de repos avec 93,75 % de justesse
+    (PLOS ONE, 2022), et une étude en contexte d'interrogatoire a identifié un marqueur stéroïdien volatil
+    sécrété par les personnes qui dissimulent une information. Limites : ça détecte le <i>stress</i>, pas le
+    mensonge ; ça exige un capteur chimique, pas une caméra ; et le signal est lent. C'est exactement le terrain
+    de recherche d'Ursly — le nez chimique est un de ses cinq sens. Piste sérieuse, pas un produit d'aujourd'hui.</p>
+    <p><b>Le toucher — une physiologie de contact.</b> La conductance de la peau et le pouls au contact sont le
+    cœur du polygraphe : réels, mais ils demandent des électrodes. À distance, le pouls rPPG couvre déjà une
+    partie de ce canal, sans contact.</p>
+    <p><b>Le goût — des biomarqueurs de laboratoire.</b> Le cortisol salivaire mesure le stress, mais en
+    laboratoire, avec un prélèvement, et avec des minutes de retard. Aucun usage en temps réel ni à distance.</p>
+    <p><b>Le thermique — la vue, en infrarouge.</b> Les caméras thermiques lisent la température du visage
+    (nez, joues, front). Les preuves restent faibles : en étude contrôlée (2024), la véracité n'a pas modulé
+    significativement les marqueurs thermiques — l'excitation et le contexte, oui.</p>
+    <p><b>Verdict :</b> la vue et l'ouïe portent le produit. Le mouvement les complète comme signal mesuré.
+    L'odorat est la seule autre voie que la science rend crédible — et c'est la direction de recherche d'Ursly.</p>
+  </section>
+
+  <section class="card">
+    <h2>Les limites, dites franchement</h2>
+    <p>Il n'existe pas de détecteur de mensonge à 100 % : l'état de l'art publié plafonne autour de 70-75 %
+    en laboratoire. Ursly Non-verbal affiche donc un <b>indice de tension</b> et sa <b>confiance</b>, jamais un
+    verdict « il ment ». Le stress a mille causes — la peur de ne pas être cru en est une. Le système s'améliore
+    chaque jour sur des données réelles, étiquetées par de vrais humains avec leur consentement, et ses chiffres
+    sont publiés tels qu'ils sont mesurés. Usages exclus : recrutement, justice, assurance, éducation.</p>
+  </section>
+</main>
+
+<footer>
+  Ursly — Analyse non verbale · nonverbal.ursly.io<br>
+  Un produit de la famille Ursly : cinq sens — la vue, l'ouïe, l'odorat, le goût, le toucher — et le mouvement, mesuré.
+  · <i>Mesuré, jamais deviné.</i>
+</footer>
+
+</body>
+</html>

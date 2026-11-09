@@ -1,0 +1,5 @@
+assets/raw/
+assets/frames/
+assets/seg*.mp4
+assets/overlay*.png
+assets/concat.txt
