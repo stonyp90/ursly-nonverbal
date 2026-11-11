@@ -4,259 +4,168 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ursly — Analyse non verbale | La vue et l'ouïe, à l'écoute du corps</title>
-<meta name="description" content="Ursly Non-verbal : la vue et l'ouïe d'Ursly appliquées aux signaux de tension pendant qu'une personne parle. Aperçu en temps réel, analyse complète après coup. Un indice de tension mesuré — jamais un verdict de mensonge.">
+<meta name="description" content="Ursly Non-verbal : la vue et l'ouïe d'Ursly appliquées aux signaux de tension pendant qu'une personne parle. Une seule page, plein écran : la vidéo explique tout. Un indice de tension mesuré — jamais un verdict de mensonge.">
 <style>
-  :root { --bg:#0a1220; --panel:#101c30; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --line:#1d3350; }
+  :root { --bg:#0a1220; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --line:#1d3350; }
   * { box-sizing: border-box; }
-  html { scroll-behavior:smooth; }
-  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-  a { color:var(--cyan); }
+  html, body { height: 100%; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
 
-  /* ---------- HERO : la vidéo, le cadre pointillé, le titre. Rien d'autre. ---------- */
-  .hero { position:relative; min-height:100svh; overflow:hidden; }
-  .hero video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .hero .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.38) 0%, rgba(10,18,32,.10) 45%, rgba(10,18,32,.55) 100%); }
-  /* Le cadre s'adapte : ses marges suivent la plus petite dimension de l'écran. */
-  .hero .frame {
-    position:absolute; inset:clamp(12px, 4vmin, 46px);
-    border:2px dotted rgba(76,201,240,.85); border-radius:20px;
-    pointer-events:none;
-  }
-  .hero .title {
-    position:absolute; top:clamp(26px, 7vmin, 72px); left:clamp(26px, 7vmin, 72px); right:clamp(26px, 7vmin, 72px);
-    pointer-events:none;
-  }
-  .kicker { letter-spacing:.28em; font-size:clamp(11px, 1.6vmin, 13px); color:var(--cyan); font-weight:700; }
-  .hero h1 { font-size:clamp(28px, 5.2vw, 54px); line-height:1.08; margin:12px 0 0; max-width:15em; text-shadow:0 2px 22px rgba(4,12,22,.65); }
-  .hero .scrollhint {
-    position:absolute; left:50%; bottom:clamp(20px, 5vmin, 40px); transform:translateX(-50%);
-    color:var(--cyan); font-size:20px; line-height:1; pointer-events:none;
-    animation:bob 2.2s ease-in-out infinite;
-  }
-  @keyframes bob { 0%,100% { transform:translate(-50%,0); } 50% { transform:translate(-50%,7px); } }
+  /* ---------- UNE SEULE PAGE, PLEIN ÉCRAN : la vidéo explique tout ---------- */
+  .stage { position:fixed; inset:0; overflow:hidden; }
+  .stage video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.42) 0%, rgba(10,18,32,0) 34%, rgba(10,18,32,0) 58%, rgba(10,18,32,.62) 100%); pointer-events:none; }
+  /* Le cadre pointillé s'adapte à l'écran. */
+  .frame { position:absolute; inset:clamp(10px, 3.2vmin, 40px); border:2px dotted rgba(76,201,240,.85); border-radius:20px; pointer-events:none; }
 
-  /* ---------- SLIDES : tout le reste, en mots clés. ---------- */
-  .deck-wrap { max-width:980px; margin:0 auto; padding:34px 20px 8px; }
-  .deck { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:18px; overflow:hidden; }
-  .slides { position:relative; min-height:340px; }
-  .slide {
-    position:absolute; inset:0; padding:clamp(22px, 5vmin, 44px);
-    display:flex; flex-direction:column; justify-content:center; gap:16px;
-    opacity:0; transform:translateX(26px); transition:opacity .55s ease, transform .55s ease;
-    pointer-events:none;
-  }
-  .slide.active { opacity:1; transform:translateX(0); pointer-events:auto; }
-  .slide.before { transform:translateX(-26px); }
-  .slide .num { font-size:12.5px; letter-spacing:.24em; color:var(--dim); font-weight:700; }
-  .slide h2 { margin:0; font-size:clamp(24px, 4.4vw, 38px); line-height:1.12; }
-  .slide .line { margin:0; font-size:clamp(15px, 2vw, 17.5px); color:#cfe2f0; line-height:1.5; max-width:34em; }
-  .chips { display:flex; flex-wrap:wrap; gap:9px; }
-  .chip { font-size:14px; font-weight:600; color:var(--ink); border:1px dotted rgba(76,201,240,.75); border-radius:999px; padding:7px 14px; background:rgba(76,201,240,.06); }
-  .chip b { color:var(--cyan); font-weight:700; }
-  .deck-nav { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-top:1px solid var(--line); }
-  .dots { display:flex; gap:9px; align-items:center; }
-  .dot { width:9px; height:9px; border-radius:50%; border:1.5px dotted var(--cyan); background:transparent; padding:0; cursor:pointer; opacity:.65; }
-  .dot.active { background:var(--cyan); border-style:solid; opacity:1; }
-  .arrows { display:flex; gap:8px; }
-  .arrow { width:38px; height:38px; border-radius:50%; border:1px solid #2b4a73; background:rgba(16,28,48,.72); color:var(--ink); font-size:17px; cursor:pointer; line-height:1; }
-  .arrow:hover, .dot:hover { border-color:var(--cyan); }
-  .progress { position:absolute; top:0; left:0; height:3px; background:var(--cyan); width:0%; }
+  .title { position:absolute; top:clamp(24px, 6vmin, 64px); left:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); pointer-events:none; }
+  .kicker { letter-spacing:.28em; font-size:clamp(10px, 1.5vmin, 13px); color:var(--cyan); font-weight:700; }
+  .title h1 { font-size:clamp(24px, 4.6vw, 50px); line-height:1.08; margin:10px 0 0; max-width:15em; text-shadow:0 2px 22px rgba(4,12,22,.7); }
 
-  .strip { max-width:980px; margin:0 auto; padding:18px 20px 0; display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
-  .strip .lbl { font-size:12px; letter-spacing:.22em; color:var(--dim); font-weight:700; margin-right:2px; }
-  .minichip { font-size:13.5px; color:#d5e5f2; border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:#0d1828; }
-  .cta { max-width:980px; margin:0 auto; padding:20px 20px 4px; display:flex; gap:10px; flex-wrap:wrap; }
-  .btn { display:inline-block; padding:12px 20px; border-radius:12px; border:1px solid #2b4a73; color:var(--ink); text-decoration:none; font-weight:600; background:rgba(16,28,48,.72); }
+  .livebadge {
+    position:absolute; top:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px);
+    font-family:ui-monospace, Menlo, Consolas, monospace; font-size:clamp(10px, 1.4vmin, 12px); font-weight:700;
+    letter-spacing:.14em; color:#a0e6ff; border:1px solid rgba(76,201,240,.55); border-radius:999px;
+    padding:7px 13px; background:rgba(7,18,33,.66); pointer-events:none; white-space:nowrap;
+  }
+  .livebadge .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#5eeaaa; margin-right:7px; animation:pulse 1.6s ease-in-out infinite; vertical-align:1px; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.25; } }
+
+  /* Bandeau du bas : l'explication, synchronisée avec les scènes de la vidéo (5 x 3 s). */
+  .explainer {
+    position:absolute; left:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px);
+    bottom:clamp(24px, 5.5vmin, 56px);
+    display:flex; align-items:flex-end; justify-content:space-between; gap:18px;
+  }
+  .cap { min-width:0; }
+  .cap .num { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; letter-spacing:.22em; color:var(--cyan); font-weight:700; }
+  .cap h2 { margin:6px 0 10px; font-size:clamp(20px, 3.4vw, 34px); line-height:1.12; text-shadow:0 2px 18px rgba(4,12,22,.7); }
+  .cap .capbody { opacity:1; transition:opacity .35s ease, transform .35s ease; }
+  .cap .capbody.out { opacity:0; transform:translateY(8px); }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { font-size:clamp(12px, 1.7vmin, 14px); font-weight:600; color:var(--ink); border:1px dotted rgba(76,201,240,.75); border-radius:999px; padding:6px 12px; background:rgba(7,18,33,.66); }
+  .chip b { color:var(--cyan); }
+
+  .side { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+  .cta { display:flex; gap:9px; flex-wrap:wrap; justify-content:flex-end; }
+  .btn { display:inline-block; padding:11px 17px; border-radius:12px; border:1px solid #2b4a73; color:var(--ink); text-decoration:none; font-weight:600; font-size:14.5px; background:rgba(16,28,48,.78); }
   .btn.primary { background:var(--cyan); color:#04222f; border-color:var(--cyan); }
-  .fnote { max-width:980px; margin:0 auto; padding:16px 20px 0; font-size:13px; color:var(--dim); line-height:1.6; }
-  footer { max-width:980px; margin:0 auto; padding:26px 20px 46px; color:var(--dim); font-size:13px; line-height:1.6; }
+  .fnote { max-width:44em; text-align:right; font-size:11.5px; color:var(--dim); line-height:1.5; text-shadow:0 1px 10px rgba(4,12,22,.8); }
 
-  @media (max-width:760px) {
-    .slides { min-height:380px; }
-    .hero .title { top:clamp(20px, 6vmin, 40px); }
+  .scenedots { display:flex; gap:8px; }
+  .sdot { width:26px; height:5px; border-radius:3px; background:rgba(255,255,255,.28); overflow:hidden; position:relative; }
+  .sdot i { position:absolute; inset:0; width:0%; background:var(--cyan); display:block; }
+
+  @media (max-width: 760px) {
+    .livebadge { display:none; }
+    .explainer { flex-direction:column; align-items:stretch; gap:12px; }
+    .side { align-items:flex-start; }
+    .cta { justify-content:flex-start; }
+    .fnote { text-align:left; }
+  }
+  @media (max-height: 560px) {
+    .fnote { display:none; }
+    .title h1 { font-size:clamp(20px, 3.6vw, 34px); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .slide { transition:none; }
-    .hero .scrollhint { animation:none; }
-    html { scroll-behavior:auto; }
+    .livebadge .dot { animation:none; }
+    .cap .capbody { transition:none; }
   }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <video autoplay muted loop playsinline poster="assets/poster.jpg">
-    <source src="assets/hero-nonverbal-15s.mp4" type="video/mp4">
+<main class="stage">
+  <video id="heroVideo" autoplay muted loop playsinline poster="assets/poster-v3.jpg">
+    <source src="assets/hero-nonverbal-v3.mp4" type="video/mp4">
   </video>
   <div class="veil"></div>
   <div class="frame" aria-hidden="true"></div>
+
   <div class="title">
     <div class="kicker">URSLY · ANALYSE NON VERBALE</div>
     <h1>La vue et l'ouïe, à l'écoute de ce que le corps dit.</h1>
   </div>
-  <div class="scrollhint" aria-hidden="true">⌄</div>
-</header>
-
-<main>
-  <div class="deck-wrap">
-    <div class="deck" id="deck">
-      <div class="progress" id="progress"></div>
-      <div class="slides" id="slides">
-
-        <section class="slide active" aria-label="Le concept">
-          <div class="num">01 / 05</div>
-          <h2>Le concept</h2>
-          <div class="chips">
-            <span class="chip"><b>Vue</b> + <b>Ouïe</b></span>
-            <span class="chip">Signaux involontaires</span>
-            <span class="chip">Indice de tension</span>
-            <span class="chip">Baseline personnelle</span>
-            <span class="chip">Confiance affichée</span>
-          </div>
-          <p class="line">Mesuré, jamais deviné — et jamais un verdict de mensonge.</p>
-        </section>
-
-        <section class="slide" aria-label="La vue">
-          <div class="num">02 / 05</div>
-          <h2>Ce que l'œil lit</h2>
-          <div class="chips">
-            <span class="chip">Visage</span>
-            <span class="chip">Regard</span>
-            <span class="chip">Clignements</span>
-            <span class="chip">Figements</span>
-            <span class="chip">Micro-mouvements</span>
-            <span class="chip">Pouls à distance — <b>rPPG</b></span>
-          </div>
-        </section>
-
-        <section class="slide" aria-label="L'ouïe">
-          <div class="num">03 / 05</div>
-          <h2>Ce que l'oreille lit</h2>
-          <div class="chips">
-            <span class="chip">Prosodie</span>
-            <span class="chip">Hésitations</span>
-            <span class="chip">Débit</span>
-            <span class="chip">Tension vocale</span>
-            <span class="chip">Cohérence du discours</span>
-          </div>
-          <p class="line">+ le <b>mouvement</b> du corps, mesuré comme un signal — pas un sens.</p>
-        </section>
-
-        <section class="slide" aria-label="Deux modes">
-          <div class="num">04 / 05</div>
-          <h2>Deux modes</h2>
-          <div class="chips">
-            <span class="chip"><b>Temps réel</b> — l'aperçu</span>
-            <span class="chip"><b>Après coup</b> — la mesure</span>
-            <span class="chip">Timeline seconde par seconde</span>
-            <span class="chip">Rapport exportable</span>
-            <span class="chip">Abstention si l'image ne permet pas de conclure</span>
-          </div>
-        </section>
-
-        <section class="slide" aria-label="Les limites">
-          <div class="num">05 / 05</div>
-          <h2>Les limites, franchement</h2>
-          <div class="chips">
-            <span class="chip">≈ 70–75 % en laboratoire — l'état de l'art</span>
-            <span class="chip">Un indice, pas un verdict</span>
-            <span class="chip">Le stress a mille causes</span>
-            <span class="chip">Usages exclus : recrutement · justice · assurance · éducation</span>
-          </div>
-        </section>
-
+  <div class="explainer">
+    <div class="cap" aria-live="off">
+      <div class="capbody" id="capBody">
+        <div class="num" id="capNum">01 / 05 · LE CONCEPT</div>
+        <h2 id="capTitle">Un indice de tension, mesuré</h2>
+        <div class="chips" id="capChips"></div>
       </div>
-      <div class="deck-nav">
-        <div class="dots" id="dots" role="tablist" aria-label="Choisir une slide"></div>
-        <div class="arrows">
-          <button class="arrow" id="prev" aria-label="Slide précédente">‹</button>
-          <button class="arrow" id="next" aria-label="Slide suivante">›</button>
-        </div>
+      <div class="scenedots" id="sceneDots" aria-hidden="true" style="margin-top:14px;"></div>
+    </div>
+    <div class="side">
+      <div class="cta">
+        <a class="btn primary" href="https://stonyp90.github.io/truthlens/apps/web/live.html">Essayer l'aperçu temps réel</a>
+        <a class="btn" href="https://stonyp90.github.io/truthlens/apps/web/test.html">Le Test du jour</a>
       </div>
+      <div class="fnote">La vidéo explique tout : le cadre suit la tête image par image, grandit et se rétracte avec le visage, les pourcentages évoluent en direct. Interface d'analyse illustrée — jamais un verdict de mensonge. ≈ 70–75 % en laboratoire, confiance affichée.</div>
     </div>
   </div>
-
-  <div class="strip" aria-label="Où ça sert">
-    <span class="lbl">OÙ ÇA SERT</span>
-    <span class="minichip">L'entretien</span>
-    <span class="minichip">Le poker</span>
-    <span class="minichip">L'appel vidéo</span>
-    <span class="minichip">La négociation</span>
-    <span class="minichip">L'entrevue publique</span>
-  </div>
-
-  <div class="cta">
-    <a class="btn primary" href="https://stonyp90.github.io/truthlens/apps/web/live.html">Essayer l'aperçu temps réel</a>
-    <a class="btn" href="https://stonyp90.github.io/truthlens/apps/web/test.html">Le Test du jour — vrais humains</a>
-  </div>
-
-  <p class="fnote">Et les autres sens ? L'odorat est la seule autre voie que la science rend crédible :
-  l'odeur du stress, distinguée de l'odeur de repos à 93,75 % par des chiens (PLOS ONE, 2022).
-  C'est la piste de recherche d'Ursly — pas un produit d'aujourd'hui.
-  Vidéo d'illustration : les pourcentages à l'écran montrent l'interface d'analyse, pas des mesures réelles sur ces personnes.</p>
 </main>
-
-<footer>
-  Ursly — Analyse non verbale · nonverbal.ursly.io<br>
-  Un produit de la famille Ursly : cinq sens — la vue, l'ouïe, l'odorat, le goût, le toucher — et le mouvement, mesuré.
-  · <i>Mesuré, jamais deviné.</i>
-</footer>
 
 <script>
   (function () {
-    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
-    var dotsBox = document.getElementById("dots");
-    var progress = document.getElementById("progress");
-    var deck = document.getElementById("deck");
-    var current = 0, timer = null, startedAt = 0, DUR = 5600;
-    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    slides.forEach(function (_, i) {
-      var d = document.createElement("button");
-      d.className = "dot" + (i === 0 ? " active" : "");
-      d.setAttribute("role", "tab");
-      d.setAttribute("aria-label", "Slide " + (i + 1));
-      d.addEventListener("click", function () { go(i); restart(); });
+    var SCENES = [
+      { num: "01 / 05 · LE CONCEPT", title: "Un indice de tension, mesuré",
+        chips: ["<b>Vue</b> + <b>Ouïe</b>", "Signaux involontaires", "Baseline personnelle", "Confiance affichée"] },
+      { num: "02 / 05 · CE QUE L'ŒIL LIT", title: "Le visage, suivi image par image",
+        chips: ["Visage", "Regard", "Clignements", "Figements", "Pouls à distance · <b>rPPG</b>"] },
+      { num: "03 / 05 · CE QUE L'OREILLE LIT", title: "La voix, seconde par seconde",
+        chips: ["Prosodie", "Hésitations", "Débit", "Tension vocale", "Cohérence du discours"] },
+      { num: "04 / 05 · DEUX MODES", title: "L'aperçu, puis la mesure",
+        chips: ["<b>Temps réel</b> · l'aperçu", "<b>Après coup</b> · la mesure", "Timeline exportable", "Le mouvement = un signal, pas un sens"] },
+      { num: "05 / 05 · LES LIMITES", title: "Franchement, sans promesse magique",
+        chips: ["≈ 70–75 % en laboratoire", "Un indice, pas un verdict", "Le stress a mille causes", "Abstention si l'image ne permet pas de conclure"] }
+    ];
+    var video = document.getElementById("heroVideo");
+    var capBody = document.getElementById("capBody");
+    var capNum = document.getElementById("capNum");
+    var capTitle = document.getElementById("capTitle");
+    var capChips = document.getElementById("capChips");
+    var dotsBox = document.getElementById("sceneDots");
+    var fills = [];
+    SCENES.forEach(function (_, i) {
+      var d = document.createElement("span");
+      d.className = "sdot";
+      var f = document.createElement("i");
+      d.appendChild(f);
       dotsBox.appendChild(d);
+      fills.push(f);
     });
-    var dots = Array.prototype.slice.call(dotsBox.children);
-
-    function go(i) {
-      slides[current].classList.remove("active");
-      slides[current].classList.toggle("before", i > current);
-      dots[current].classList.remove("active");
-      current = (i + slides.length) % slides.length;
-      slides[current].classList.remove("before");
-      slides[current].classList.add("active");
-      dots[current].classList.add("active");
-      progress.style.transition = "none"; progress.style.width = "0%";
+    var current = -1;
+    function show(i) {
+      var s = SCENES[i];
+      capNum.textContent = s.num;
+      capTitle.textContent = s.title;
+      capChips.innerHTML = s.chips.map(function (c) { return '<span class="chip">' + c + "</span>"; }).join("");
     }
-    function tick() {
-      var elapsed = Date.now() - startedAt;
-      progress.style.width = Math.min(100, (elapsed / DUR) * 100) + "%";
-      if (elapsed >= DUR) { go(current + 1); startedAt = Date.now(); }
-    }
-    function restart() {
-      startedAt = Date.now();
-      if (timer) { clearInterval(timer); timer = null; }
-      if (!reduce) {
-        progress.style.transition = "none";
-        timer = setInterval(tick, 50);
+    function render() {
+      var t = video.currentTime || 0;
+      var dur = video.duration || 15;
+      var sceneLen = dur / 5;
+      var idx = Math.min(4, Math.floor(t / sceneLen));
+      var frac = (t - idx * sceneLen) / sceneLen;
+      if (idx !== current) {
+        if (current === -1) {
+          show(idx);
+          current = idx;
+        } else {
+          capBody.classList.add("out");
+          var target = idx;
+          setTimeout(function () { show(target); capBody.classList.remove("out"); }, 180);
+          current = idx;
+        }
       }
+      fills.forEach(function (f, i) {
+        f.style.width = i < idx ? "100%" : (i === idx ? Math.round(frac * 100) + "%" : "0%");
+      });
     }
-    document.getElementById("next").addEventListener("click", function () { go(current + 1); restart(); });
-    document.getElementById("prev").addEventListener("click", function () { go(current - 1); restart(); });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowRight") { go(current + 1); restart(); }
-      if (e.key === "ArrowLeft") { go(current - 1); restart(); }
-    });
-    ["mouseenter", "focusin"].forEach(function (ev) {
-      deck.addEventListener(ev, function () { if (timer) { clearInterval(timer); timer = null; } });
-    });
-    ["mouseleave", "focusout"].forEach(function (ev) {
-      deck.addEventListener(ev, restart);
-    });
-    restart();
+    video.addEventListener("timeupdate", render);
+    setInterval(render, 120);
+    show(0);
+    current = 0;
   })();
 </script>
 
