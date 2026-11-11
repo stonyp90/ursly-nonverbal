@@ -8,34 +8,78 @@
 <style>
   :root { --bg:#0a1220; --panel:#101c30; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --line:#1d3350; }
   * { box-sizing: border-box; }
+  html { scroll-behavior:smooth; }
   body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
   a { color:var(--cyan); }
-  .hero { position:relative; min-height:92vh; display:flex; align-items:flex-end; overflow:hidden; }
+
+  /* ---------- HERO : la vidéo, le cadre pointillé, le titre. Rien d'autre. ---------- */
+  .hero { position:relative; min-height:100svh; overflow:hidden; }
   .hero video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .hero .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.42) 0%, rgba(10,18,32,.55) 55%, var(--bg) 100%); }
-  .hero .inner { position:relative; max-width:980px; margin:0 auto; padding:120px 20px 54px; width:100%; }
-  .kicker { letter-spacing:.28em; font-size:13px; color:var(--cyan); font-weight:700; }
-  h1 { font-size:clamp(30px, 5.4vw, 54px); line-height:1.08; margin:14px 0 12px; max-width:16em; }
-  .lead { font-size:clamp(16px, 2.2vw, 20px); color:#cfe2f0; line-height:1.55; max-width:42em; }
-  .cta { display:flex; gap:10px; flex-wrap:wrap; margin-top:22px; }
+  .hero .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.38) 0%, rgba(10,18,32,.10) 45%, rgba(10,18,32,.55) 100%); }
+  /* Le cadre s'adapte : ses marges suivent la plus petite dimension de l'écran. */
+  .hero .frame {
+    position:absolute; inset:clamp(12px, 4vmin, 46px);
+    border:2px dotted rgba(76,201,240,.85); border-radius:20px;
+    pointer-events:none;
+  }
+  .hero .title {
+    position:absolute; top:clamp(26px, 7vmin, 72px); left:clamp(26px, 7vmin, 72px); right:clamp(26px, 7vmin, 72px);
+    pointer-events:none;
+  }
+  .kicker { letter-spacing:.28em; font-size:clamp(11px, 1.6vmin, 13px); color:var(--cyan); font-weight:700; }
+  .hero h1 { font-size:clamp(28px, 5.2vw, 54px); line-height:1.08; margin:12px 0 0; max-width:15em; text-shadow:0 2px 22px rgba(4,12,22,.65); }
+  .hero .scrollhint {
+    position:absolute; left:50%; bottom:clamp(20px, 5vmin, 40px); transform:translateX(-50%);
+    color:var(--cyan); font-size:20px; line-height:1; pointer-events:none;
+    animation:bob 2.2s ease-in-out infinite;
+  }
+  @keyframes bob { 0%,100% { transform:translate(-50%,0); } 50% { transform:translate(-50%,7px); } }
+
+  /* ---------- SLIDES : tout le reste, en mots clés. ---------- */
+  .deck-wrap { max-width:980px; margin:0 auto; padding:34px 20px 8px; }
+  .deck { position:relative; background:var(--panel); border:1px solid var(--line); border-radius:18px; overflow:hidden; }
+  .slides { position:relative; min-height:340px; }
+  .slide {
+    position:absolute; inset:0; padding:clamp(22px, 5vmin, 44px);
+    display:flex; flex-direction:column; justify-content:center; gap:16px;
+    opacity:0; transform:translateX(26px); transition:opacity .55s ease, transform .55s ease;
+    pointer-events:none;
+  }
+  .slide.active { opacity:1; transform:translateX(0); pointer-events:auto; }
+  .slide.before { transform:translateX(-26px); }
+  .slide .num { font-size:12.5px; letter-spacing:.24em; color:var(--dim); font-weight:700; }
+  .slide h2 { margin:0; font-size:clamp(24px, 4.4vw, 38px); line-height:1.12; }
+  .slide .line { margin:0; font-size:clamp(15px, 2vw, 17.5px); color:#cfe2f0; line-height:1.5; max-width:34em; }
+  .chips { display:flex; flex-wrap:wrap; gap:9px; }
+  .chip { font-size:14px; font-weight:600; color:var(--ink); border:1px dotted rgba(76,201,240,.75); border-radius:999px; padding:7px 14px; background:rgba(76,201,240,.06); }
+  .chip b { color:var(--cyan); font-weight:700; }
+  .deck-nav { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-top:1px solid var(--line); }
+  .dots { display:flex; gap:9px; align-items:center; }
+  .dot { width:9px; height:9px; border-radius:50%; border:1.5px dotted var(--cyan); background:transparent; padding:0; cursor:pointer; opacity:.65; }
+  .dot.active { background:var(--cyan); border-style:solid; opacity:1; }
+  .arrows { display:flex; gap:8px; }
+  .arrow { width:38px; height:38px; border-radius:50%; border:1px solid #2b4a73; background:rgba(16,28,48,.72); color:var(--ink); font-size:17px; cursor:pointer; line-height:1; }
+  .arrow:hover, .dot:hover { border-color:var(--cyan); }
+  .progress { position:absolute; top:0; left:0; height:3px; background:var(--cyan); width:0%; }
+
+  .strip { max-width:980px; margin:0 auto; padding:18px 20px 0; display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+  .strip .lbl { font-size:12px; letter-spacing:.22em; color:var(--dim); font-weight:700; margin-right:2px; }
+  .minichip { font-size:13.5px; color:#d5e5f2; border:1px solid var(--line); border-radius:999px; padding:5px 12px; background:#0d1828; }
+  .cta { max-width:980px; margin:0 auto; padding:20px 20px 4px; display:flex; gap:10px; flex-wrap:wrap; }
   .btn { display:inline-block; padding:12px 20px; border-radius:12px; border:1px solid #2b4a73; color:var(--ink); text-decoration:none; font-weight:600; background:rgba(16,28,48,.72); }
   .btn.primary { background:var(--cyan); color:#04222f; border-color:var(--cyan); }
-  .note { font-size:12.5px; color:var(--dim); margin-top:14px; }
-  main { max-width:980px; margin:0 auto; padding:30px 20px 60px; display:grid; gap:16px; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px; }
-  .card h2 { margin:0 0 10px; font-size:21px; }
-  .card p, .card li { line-height:1.6; color:#d5e5f2; font-size:15.5px; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
-  .tag { display:inline-block; font-size:12px; letter-spacing:.12em; color:var(--cyan); border:1px solid #2b4a73; padding:3px 9px; border-radius:999px; margin-bottom:8px; }
-  table { width:100%; border-collapse:collapse; font-size:14.5px; }
-  th, td { text-align:left; padding:8px 9px; border-bottom:1px solid var(--line); vertical-align:top; line-height:1.5; }
-  th { color:var(--dim); font-weight:600; }
-  .scenes { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:10px; }
-  .scene { border:1px solid var(--line); border-radius:12px; padding:13px; background:#0d1828; }
-  .scene b { display:block; margin-bottom:4px; }
-  .scene span { font-size:13px; color:var(--dim); line-height:1.5; display:block; }
-  footer { max-width:980px; margin:0 auto; padding:0 20px 46px; color:var(--dim); font-size:13px; line-height:1.6; }
+  .fnote { max-width:980px; margin:0 auto; padding:16px 20px 0; font-size:13px; color:var(--dim); line-height:1.6; }
+  footer { max-width:980px; margin:0 auto; padding:26px 20px 46px; color:var(--dim); font-size:13px; line-height:1.6; }
+
+  @media (max-width:760px) {
+    .slides { min-height:380px; }
+    .hero .title { top:clamp(20px, 6vmin, 40px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .slide { transition:none; }
+    .hero .scrollhint { animation:none; }
+    html { scroll-behavior:auto; }
+  }
 </style>
 </head>
 <body>
@@ -45,108 +89,111 @@
     <source src="assets/hero-nonverbal-15s.mp4" type="video/mp4">
   </video>
   <div class="veil"></div>
-  <div class="inner">
+  <div class="frame" aria-hidden="true"></div>
+  <div class="title">
     <div class="kicker">URSLY · ANALYSE NON VERBALE</div>
     <h1>La vue et l'ouïe, à l'écoute de ce que le corps dit.</h1>
-    <p class="lead">Pendant qu'une personne parle, son visage, son regard et sa voix émettent des signaux
-    qu'elle ne contrôle pas entièrement. Ursly Non-verbal les lit en continu et les transforme en un
-    <b>indice de tension</b> — mesuré, daté, avec son niveau de confiance. Jamais un verdict de mensonge.</p>
-    <div class="cta">
-      <a class="btn primary" href="https://stonyp90.github.io/truthlens/apps/web/live.html">Essayer l'aperçu temps réel</a>
-      <a class="btn" href="https://stonyp90.github.io/truthlens/apps/web/test.html">Le Test du jour — vrais humains</a>
-    </div>
-    <div class="note">Vidéo d'illustration : les pourcentages à l'écran montrent l'interface d'analyse, pas des mesures réelles sur ces personnes.</div>
   </div>
+  <div class="scrollhint" aria-hidden="true">⌄</div>
 </header>
 
 <main>
-  <section class="card">
-    <h2>Le concept</h2>
-    <p>Le non-verbal, c'est tout ce qui se dit sans les mots : la tension d'un visage, un regard qui décroche,
-    un figement soudain, une voix qui monte. Ursly mobilise ici <b>deux de ses cinq sens</b> —
-    la <b>vue</b> et l'<b>ouïe</b> — et les applique à une question précise : comment la tension d'une personne
-    évolue-t-elle pendant qu'elle parle ?</p>
-    <p><b>La vue</b> lit le visage : mouvements de tête, clignements, direction du regard, micro-mouvements
-    répétés, figements — et même le <b>pouls à distance</b> (rPPG), extrait des variations de couleur de la peau
-    invisibles à l'œil. <b>L'ouïe</b> lit la voix : prosodie, hésitations, débit, tension vocale, et la cohérence
-    de ce qui est dit. Le <b>mouvement</b> du corps (posture, gestuelle, figement) est lui aussi mesuré —
-    comme un signal, pas comme un sens : chez Ursly, les sens sont cinq, et le mouvement n'en fait pas partie.</p>
-    <p>Chaque signal est comparé à la <b>référence propre de la personne</b> (sa baseline des premières secondes),
-    puis fusionné en un indice de 5 à 95, toujours accompagné de sa confiance. Quand l'image ne permet pas de
-    conclure — visage trop petit, trop sombre, animation — le système s'abstient au lieu d'inventer un score.</p>
-  </section>
+  <div class="deck-wrap">
+    <div class="deck" id="deck">
+      <div class="progress" id="progress"></div>
+      <div class="slides" id="slides">
 
-  <div class="grid">
-    <section class="card">
-      <span class="tag">MODE 1 · EN DIRECT</span>
-      <h2>Le temps réel : un aperçu</h2>
-      <p>Pendant l'échange, un calque affiche l'indice courant, sa confiance et l'humeur estimée, directement
-      sur la vidéo ou la webcam. C'est un <b>aperçu</b> : les signaux rapides (mouvement, figement, répétitions)
-      sont lus à chaud, avec la latence d'un navigateur. Utile pour sentir le moment où la tension monte —
-      pas pour conclure.</p>
-    </section>
-    <section class="card">
-      <span class="tag">MODE 2 · APRÈS COUP</span>
-      <h2>L'analyse complète : la mesure</h2>
-      <p>Sur l'enregistrement, le moteur prend son temps : pouls à distance sur toute la durée, voix analysée
-      phrase par phrase, contenu verbal confronté à ce qui est vérifiable, timeline seconde par seconde et
-      rapport exportable. C'est l'analyse <b>optimale</b> — celle qui sert à mesurer, comparer et améliorer
-      le modèle.</p>
-    </section>
+        <section class="slide active" aria-label="Le concept">
+          <div class="num">01 / 05</div>
+          <h2>Le concept</h2>
+          <div class="chips">
+            <span class="chip"><b>Vue</b> + <b>Ouïe</b></span>
+            <span class="chip">Signaux involontaires</span>
+            <span class="chip">Indice de tension</span>
+            <span class="chip">Baseline personnelle</span>
+            <span class="chip">Confiance affichée</span>
+          </div>
+          <p class="line">Mesuré, jamais deviné — et jamais un verdict de mensonge.</p>
+        </section>
+
+        <section class="slide" aria-label="La vue">
+          <div class="num">02 / 05</div>
+          <h2>Ce que l'œil lit</h2>
+          <div class="chips">
+            <span class="chip">Visage</span>
+            <span class="chip">Regard</span>
+            <span class="chip">Clignements</span>
+            <span class="chip">Figements</span>
+            <span class="chip">Micro-mouvements</span>
+            <span class="chip">Pouls à distance — <b>rPPG</b></span>
+          </div>
+        </section>
+
+        <section class="slide" aria-label="L'ouïe">
+          <div class="num">03 / 05</div>
+          <h2>Ce que l'oreille lit</h2>
+          <div class="chips">
+            <span class="chip">Prosodie</span>
+            <span class="chip">Hésitations</span>
+            <span class="chip">Débit</span>
+            <span class="chip">Tension vocale</span>
+            <span class="chip">Cohérence du discours</span>
+          </div>
+          <p class="line">+ le <b>mouvement</b> du corps, mesuré comme un signal — pas un sens.</p>
+        </section>
+
+        <section class="slide" aria-label="Deux modes">
+          <div class="num">04 / 05</div>
+          <h2>Deux modes</h2>
+          <div class="chips">
+            <span class="chip"><b>Temps réel</b> — l'aperçu</span>
+            <span class="chip"><b>Après coup</b> — la mesure</span>
+            <span class="chip">Timeline seconde par seconde</span>
+            <span class="chip">Rapport exportable</span>
+            <span class="chip">Abstention si l'image ne permet pas de conclure</span>
+          </div>
+        </section>
+
+        <section class="slide" aria-label="Les limites">
+          <div class="num">05 / 05</div>
+          <h2>Les limites, franchement</h2>
+          <div class="chips">
+            <span class="chip">≈ 70–75 % en laboratoire — l'état de l'art</span>
+            <span class="chip">Un indice, pas un verdict</span>
+            <span class="chip">Le stress a mille causes</span>
+            <span class="chip">Usages exclus : recrutement · justice · assurance · éducation</span>
+          </div>
+        </section>
+
+      </div>
+      <div class="deck-nav">
+        <div class="dots" id="dots" role="tablist" aria-label="Choisir une slide"></div>
+        <div class="arrows">
+          <button class="arrow" id="prev" aria-label="Slide précédente">‹</button>
+          <button class="arrow" id="next" aria-label="Slide suivante">›</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <section class="card">
-    <h2>Les deux modes, côte à côte</h2>
-    <table>
-      <tr><th></th><th>Temps réel (aperçu)</th><th>Après coup (complet)</th></tr>
-      <tr><td><b>Signaux</b></td><td>Mouvement, figement, répétitions</td><td>+ pouls rPPG, voix, contenu verbal, baseline complète</td></tr>
-      <tr><td><b>Latence</b></td><td>Immédiate, dans le navigateur</td><td>Différée, côté serveur</td></tr>
-      <tr><td><b>Usage</b></td><td>Sentir la tension pendant l'échange</td><td>Mesurer, documenter, entraîner le modèle</td></tr>
-      <tr><td><b>Confiance</b></td><td>Indiquée, plus basse</td><td>Indiquée, plus haute — ou abstention</td></tr>
-    </table>
-  </section>
+  <div class="strip" aria-label="Où ça sert">
+    <span class="lbl">OÙ ÇA SERT</span>
+    <span class="minichip">L'entretien</span>
+    <span class="minichip">Le poker</span>
+    <span class="minichip">L'appel vidéo</span>
+    <span class="minichip">La négociation</span>
+    <span class="minichip">L'entrevue publique</span>
+  </div>
 
-  <section class="card">
-    <h2>Où ça sert</h2>
-    <div class="scenes">
-      <div class="scene"><b>L'entretien</b><span>Deux personnes qui se parlent : suivre la tension réponse par réponse.</span></div>
-      <div class="scene"><b>Le poker</b><span>Le bluff est un métier : lire le figement et la fausse détente autour de la table.</span></div>
-      <div class="scene"><b>L'appel vidéo</b><span>Les mêmes signaux, à travers une webcam — réunions, entrevues, témoignages.</span></div>
-      <div class="scene"><b>La négociation</b><span>Voir le moment où une proposition fait monter la tension, des deux côtés.</span></div>
-      <div class="scene"><b>L'entrevue publique</b><span>Conférences de presse et plateaux : la cohérence entre le discours et le visage.</span></div>
-    </div>
-  </section>
+  <div class="cta">
+    <a class="btn primary" href="https://stonyp90.github.io/truthlens/apps/web/live.html">Essayer l'aperçu temps réel</a>
+    <a class="btn" href="https://stonyp90.github.io/truthlens/apps/web/test.html">Le Test du jour — vrais humains</a>
+  </div>
 
-  <section class="card">
-    <h2>Et les autres sens ?</h2>
-    <p>La question est légitime : si le corps trahit la tension, pourquoi s'arrêter aux yeux et aux oreilles ?
-    Voici ce que dit la recherche, sens par sens.</p>
-    <p><b>L'odorat — la frontière crédible.</b> Le stress modifie les composés organiques volatils de la sueur et
-    de l'haleine. Des chiens distinguent l'odeur du stress de l'odeur de repos avec 93,75 % de justesse
-    (PLOS ONE, 2022), et une étude en contexte d'interrogatoire a identifié un marqueur stéroïdien volatil
-    sécrété par les personnes qui dissimulent une information. Limites : ça détecte le <i>stress</i>, pas le
-    mensonge ; ça exige un capteur chimique, pas une caméra ; et le signal est lent. C'est exactement le terrain
-    de recherche d'Ursly — le nez chimique est un de ses cinq sens. Piste sérieuse, pas un produit d'aujourd'hui.</p>
-    <p><b>Le toucher — une physiologie de contact.</b> La conductance de la peau et le pouls au contact sont le
-    cœur du polygraphe : réels, mais ils demandent des électrodes. À distance, le pouls rPPG couvre déjà une
-    partie de ce canal, sans contact.</p>
-    <p><b>Le goût — des biomarqueurs de laboratoire.</b> Le cortisol salivaire mesure le stress, mais en
-    laboratoire, avec un prélèvement, et avec des minutes de retard. Aucun usage en temps réel ni à distance.</p>
-    <p><b>Le thermique — la vue, en infrarouge.</b> Les caméras thermiques lisent la température du visage
-    (nez, joues, front). Les preuves restent faibles : en étude contrôlée (2024), la véracité n'a pas modulé
-    significativement les marqueurs thermiques — l'excitation et le contexte, oui.</p>
-    <p><b>Verdict :</b> la vue et l'ouïe portent le produit. Le mouvement les complète comme signal mesuré.
-    L'odorat est la seule autre voie que la science rend crédible — et c'est la direction de recherche d'Ursly.</p>
-  </section>
-
-  <section class="card">
-    <h2>Les limites, dites franchement</h2>
-    <p>Il n'existe pas de détecteur de mensonge à 100 % : l'état de l'art publié plafonne autour de 70-75 %
-    en laboratoire. Ursly Non-verbal affiche donc un <b>indice de tension</b> et sa <b>confiance</b>, jamais un
-    verdict « il ment ». Le stress a mille causes — la peur de ne pas être cru en est une. Le système s'améliore
-    chaque jour sur des données réelles, étiquetées par de vrais humains avec leur consentement, et ses chiffres
-    sont publiés tels qu'ils sont mesurés. Usages exclus : recrutement, justice, assurance, éducation.</p>
-  </section>
+  <p class="fnote">Et les autres sens ? L'odorat est la seule autre voie que la science rend crédible :
+  l'odeur du stress, distinguée de l'odeur de repos à 93,75 % par des chiens (PLOS ONE, 2022).
+  C'est la piste de recherche d'Ursly — pas un produit d'aujourd'hui.
+  Vidéo d'illustration : les pourcentages à l'écran montrent l'interface d'analyse, pas des mesures réelles sur ces personnes.</p>
 </main>
 
 <footer>
@@ -154,6 +201,64 @@
   Un produit de la famille Ursly : cinq sens — la vue, l'ouïe, l'odorat, le goût, le toucher — et le mouvement, mesuré.
   · <i>Mesuré, jamais deviné.</i>
 </footer>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+    var dotsBox = document.getElementById("dots");
+    var progress = document.getElementById("progress");
+    var deck = document.getElementById("deck");
+    var current = 0, timer = null, startedAt = 0, DUR = 5600;
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    slides.forEach(function (_, i) {
+      var d = document.createElement("button");
+      d.className = "dot" + (i === 0 ? " active" : "");
+      d.setAttribute("role", "tab");
+      d.setAttribute("aria-label", "Slide " + (i + 1));
+      d.addEventListener("click", function () { go(i); restart(); });
+      dotsBox.appendChild(d);
+    });
+    var dots = Array.prototype.slice.call(dotsBox.children);
+
+    function go(i) {
+      slides[current].classList.remove("active");
+      slides[current].classList.toggle("before", i > current);
+      dots[current].classList.remove("active");
+      current = (i + slides.length) % slides.length;
+      slides[current].classList.remove("before");
+      slides[current].classList.add("active");
+      dots[current].classList.add("active");
+      progress.style.transition = "none"; progress.style.width = "0%";
+    }
+    function tick() {
+      var elapsed = Date.now() - startedAt;
+      progress.style.width = Math.min(100, (elapsed / DUR) * 100) + "%";
+      if (elapsed >= DUR) { go(current + 1); startedAt = Date.now(); }
+    }
+    function restart() {
+      startedAt = Date.now();
+      if (timer) { clearInterval(timer); timer = null; }
+      if (!reduce) {
+        progress.style.transition = "none";
+        timer = setInterval(tick, 50);
+      }
+    }
+    document.getElementById("next").addEventListener("click", function () { go(current + 1); restart(); });
+    document.getElementById("prev").addEventListener("click", function () { go(current - 1); restart(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowRight") { go(current + 1); restart(); }
+      if (e.key === "ArrowLeft") { go(current - 1); restart(); }
+    });
+    ["mouseenter", "focusin"].forEach(function (ev) {
+      deck.addEventListener(ev, function () { if (timer) { clearInterval(timer); timer = null; } });
+    });
+    ["mouseleave", "focusout"].forEach(function (ev) {
+      deck.addEventListener(ev, restart);
+    });
+    restart();
+  })();
+</script>
 
 </body>
 </html>
