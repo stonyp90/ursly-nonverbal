@@ -26,6 +26,27 @@
   .track svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
   .track svg line { stroke:rgba(160,230,255,.85); stroke-width:1.6; }
   .track svg circle { fill:#a0e6ff; }
+  .track svg circle.ring { fill:none; stroke:rgba(160,230,255,.9); stroke-width:1.4; }
+  /* Étiquettes des sens, posées sur les organes */
+  .slabel { position:absolute; transform:translate(-50%,-50%); display:none; pointer-events:none;
+    font-family:ui-monospace, Menlo, Consolas, monospace; font-size:9.5px; font-weight:700; letter-spacing:.14em;
+    color:#dff4ff; background:rgba(7,18,33,.85); border:1px solid rgba(76,201,240,.5); border-radius:5px; padding:2px 5px; white-space:nowrap; }
+
+  /* Petit bonhomme d'état, en haut à droite — l'émotion estimée, en un coup d'œil */
+  .figchip { position:absolute; top:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); display:none;
+    background:rgba(6,16,30,.80); border:1px solid rgba(76,201,240,.45); border-radius:14px; padding:9px 12px 7px;
+    text-align:center; backdrop-filter:blur(3px); color:#8fb0c9; }
+  .figchip svg { display:block; margin:0 auto; }
+  .figchip .fig-state { display:none; }
+  .figchip[data-state="calme"] .fs-calme, .figchip[data-state="neutre"] .fs-neutre,
+  .figchip[data-state="tendue"] .fs-tendue, .figchip[data-state="agitee"] .fs-agitee,
+  .figchip[data-state="figee"] .fs-figee, .figchip[data-state="attente"] .fs-neutre { display:block; }
+  .figchip[data-state="calme"] { color:#5eeaaa; } .figchip[data-state="tendue"] { color:#ffb703; }
+  .figchip[data-state="agitee"] { color:#ffb703; } .figchip[data-state="figee"] { color:#a0e6ff; }
+  .figchip[data-state="attente"] { color:#5b7d99; opacity:.6; }
+  .figchip[data-state="agitee"] svg { animation:sway .45s ease-in-out infinite alternate; transform-origin:50% 85%; }
+  @keyframes sway { from { transform:rotate(-2.6deg); } to { transform:rotate(2.6deg); } }
+  .figcap { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:10.5px; font-weight:700; letter-spacing:.16em; color:#cfeaff; margin-top:3px; }
 
   /* Panneau « ANALYSE EN COURS » — les mêmes composants que dans la vidéo */
   .hud { position:absolute; top:clamp(24px, 6vmin, 64px); left:clamp(24px, 6vmin, 64px); width:min(330px, calc(100vw - 48px));
@@ -78,11 +99,14 @@
     background:#2a1215; border:1px solid var(--red); border-radius:11px; padding:11px 14px; text-align:left; }
 
   @media (max-width: 760px) {
-    .hud { width:min(290px, calc(100vw - 32px)); top:16px; left:16px; }
+    .hud { width:min(262px, calc(100vw - 32px)); top:16px; left:16px; }
     .hud .big { font-size:31px; }
+    .figchip { top:16px; right:16px; padding:7px 9px 5px; }
+    .figchip svg { width:40px; height:50px; }
     .bottombar { left:16px; right:16px; bottom:16px; }
     .honest { display:none; }
   }
+  @media (prefers-reduced-motion: reduce) { .figchip[data-state="agitee"] svg { animation:none; } }
 </style>
 </head>
 <body>
@@ -96,8 +120,47 @@
     <div class="eyeline" id="eyeline"></div>
     <svg id="landmarks" aria-hidden="true">
       <line id="ln1"/><line id="ln2"/><line id="ln3"/>
+      <circle id="ringEyeL" class="ring" r="8"/><circle id="ringEyeR" class="ring" r="8"/>
       <circle id="ptEyeL" r="3.2"/><circle id="ptEyeR" r="3.2"/><circle id="ptNose" r="3.2"/><circle id="ptMouth" r="3.2"/>
+      <circle id="ptEarL" r="2.6"/><circle id="ptEarR" r="2.6"/>
     </svg>
+    <span class="slabel" id="labVue">VUE</span>
+    <span class="slabel" id="labOuie">OUÏE</span>
+    <span class="slabel" id="labOdorat">ODORAT</span>
+    <span class="slabel" id="labGout">GOÛT</span>
+  </div>
+
+  <div class="figchip" id="figchip" data-state="attente" aria-label="État estimé">
+    <svg width="48" height="60" viewBox="0 0 60 74" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g class="fig-state fs-calme">
+        <circle cx="30" cy="14" r="7"/><path d="M26 15 Q30 19 34 15" stroke-width="2.4"/>
+        <path d="M30 21 V44 M30 27 L20 38 M30 27 L40 38 M30 44 L23 64 M30 44 L37 64"/>
+      </g>
+      <g class="fig-state fs-neutre">
+        <circle cx="30" cy="14" r="7"/><path d="M26 16 H34" stroke-width="2.4"/>
+        <path d="M30 21 V44 M30 27 L22 44 M30 27 L38 44 M30 44 L23 64 M30 44 L37 64"/>
+      </g>
+      <g class="fig-state fs-tendue">
+        <circle cx="30" cy="14" r="7"/>
+        <path d="M23 9 L28 12 M37 9 L32 12" stroke-width="2.4"/><path d="M25 18 L28 16 L31 18 L34 16" stroke-width="2.2"/>
+        <path d="M14 7 L11 4 M46 7 L49 4" stroke-width="2.2"/>
+        <path d="M30 21 V44 M30 27 L19 20 L17 12 M30 27 L41 20 L43 12 M30 44 L23 64 M30 44 L37 64"/>
+        <circle cx="17" cy="10" r="2.8" fill="currentColor" stroke="none"/><circle cx="43" cy="10" r="2.8" fill="currentColor" stroke="none"/>
+      </g>
+      <g class="fig-state fs-agitee">
+        <g transform="rotate(-6 30 40)">
+          <circle cx="30" cy="14" r="7"/><circle cx="30" cy="16.5" r="1.9" fill="currentColor" stroke="none"/>
+          <path d="M30 21 V44 M30 27 L14 30 M30 27 L46 24 M30 44 L20 63 M30 44 L40 60"/>
+        </g>
+        <path d="M7 24 q-4 10 0 20 M53 18 q4 10 0 20" stroke-width="2.2" opacity=".65"/>
+      </g>
+      <g class="fig-state fs-figee">
+        <circle cx="30" cy="14" r="11.5" stroke-width="1.6" stroke-dasharray="3 4" opacity=".8"/>
+        <circle cx="30" cy="14" r="7"/><path d="M26 16 H34" stroke-width="2.4"/>
+        <path d="M30 21 V44 M30 27 L25.5 45 M30 27 L34.5 45 M30 44 L26 64 M30 44 L34 64"/>
+      </g>
+    </svg>
+    <div class="figcap" id="figcap">EN ATTENTE</div>
   </div>
 
   <section class="hud" id="hud" aria-label="Analyse en cours">
@@ -206,7 +269,7 @@
     }
     cam.srcObject = stream;
     await cam.play().catch(() => {});
-    cam.style.display = "block"; hud.style.display = "block"; $("bottombar").style.display = "flex";
+    cam.style.display = "block"; hud.style.display = "block"; $("figchip").style.display = "block"; $("bottombar").style.display = "flex";
     $("start").style.display = "none";
     box = null; baseW = null; baseSamples = []; trackHist = []; indexHist = []; rppgBuf = []; rppgBpm = null;
     t0 = performance.now(); noFaceSince = 0; running = true;
@@ -218,7 +281,7 @@
     running = false; cancelAnimationFrame(raf); clearInterval(tickTimer);
     if (stream) stream.getTracks().forEach((t) => t.stop());
     stream = null; cam.srcObject = null; cam.style.display = "none";
-    hud.style.display = "none"; track.style.display = "none"; hint.style.display = "none";
+    hud.style.display = "none"; track.style.display = "none"; hint.style.display = "none"; $("figchip").style.display = "none";
     $("bottombar").style.display = "none"; $("start").style.display = "flex";
     const btn = $("goBtn"); btn.disabled = false; btn.textContent = "Ouvrir ma caméra";
   };
@@ -226,7 +289,7 @@
   function loop(now) {
     if (!running) return;
     raf = requestAnimationFrame(loop);
-    if (cam.readyState < 2 || now - lastDetect < 50) return;
+    if (cam.readyState < 2 || now - lastDetect < 34) return;
     lastDetect = now;
     let res = null;
     try { res = detector.detectForVideo(cam, now); } catch (e) { /* image pas prête */ }
@@ -243,7 +306,7 @@
       const tl = toDisp((b.originX + b.width) / vw, b.originY / vh);
       const disp = { x: tl.x, y: tl.y, w: b.width * scale, h: b.height * scale };
       if (!box) box = disp;
-      else for (const k of ["x", "y", "w", "h"]) box[k] += (disp[k] - box[k]) * 0.35;
+      else for (const k of ["x", "y", "w", "h"]) box[k] += (disp[k] - box[k]) * 0.45;
       const KP_NAMES = ["right_eye", "left_eye", "nose_tip", "mouth_center", "right_ear_tragion", "left_ear_tragion"];
       keypts = (det.keypoints || []).map((p, i) => { const d = toDisp(p.x, p.y); return { x: d.x - box.x, y: d.y - box.y, name: p.name || KP_NAMES[i] }; });
       // baseline personnelle : médiane des largeurs des ~2 premières secondes
@@ -274,13 +337,21 @@
     $("trackTag").textContent = "SUIVI TÊTE · ×" + (baseW ? (box.w / baseW).toFixed(2) : "1.00");
     const kp = (n) => keypts && keypts.find((p) => p.name === n);
     const eL = kp("left_eye"), eR = kp("right_eye"), nose = kp("nose_tip"), mouth = kp("mouth_center");
+    const earL = kp("left_ear_tragion"), earR = kp("right_ear_tragion");
     const eyeY = eL && eR ? (eL.y + eR.y) / 2 + padTop : h * 0.34;
     $("eyeline").style.top = eyeY + "px";
-    const svg = $("landmarks");
     const put = (id, p) => { const el = $(id); if (p) { el.setAttribute("cx", p.x + padW); el.setAttribute("cy", p.y + padTop); el.style.display = ""; } else el.style.display = "none"; };
     const line = (id, a, b) => { const el = $(id); if (a && b) { el.setAttribute("x1", a.x + padW); el.setAttribute("y1", a.y + padTop); el.setAttribute("x2", b.x + padW); el.setAttribute("y2", b.y + padTop); el.style.display = ""; } else el.style.display = "none"; };
     put("ptEyeL", eL); put("ptEyeR", eR); put("ptNose", nose); put("ptMouth", mouth);
+    put("ringEyeL", eL); put("ringEyeR", eR); put("ptEarL", earL); put("ptEarR", earR);
     line("ln1", eL, nose); line("ln2", eR, nose); line("ln3", nose, mouth);
+    // Segmentation par sens : une étiquette par organe, posée sur l'organe.
+    const lab = (id, p, dx, dy) => { const el = $(id); if (p && box.w >= 130) { el.style.left = (p.x + padW + dx) + "px"; el.style.top = (p.y + padTop + dy) + "px"; el.style.display = "block"; } else el.style.display = "none"; };
+    lab("labVue", eL && eR ? { x: (eL.x + eR.x) / 2, y: Math.min(eL.y, eR.y) } : null, 0, -17);
+    const ear = earL && earR ? (Math.abs(earL.x - box.w / 2) > Math.abs(earR.x - box.w / 2) ? earL : earR) : earL || earR;
+    lab("labOuie", ear, ear && ear.x < box.w / 2 ? -24 : 24, 0);
+    lab("labOdorat", nose, 27, 3);
+    lab("labGout", mouth, 0, 17);
   }
 
   function motionSignals(now) {
@@ -319,6 +390,15 @@
     if (snr > 5 && dur >= 8) { const bpm = Math.round(best.f * 60); rppgBpm = rppgBpm ? Math.round(rppgBpm * 0.6 + bpm * 0.4) : bpm; }
   }
 
+  const FIGKEY = { "CALME": "calme", "NEUTRE": "neutre", "TENDUE": "tendue", "AGITÉE": "agitee", "FIGÉE": "figee" };
+  function setFigure(state, index) {
+    const chip = $("figchip");
+    if (state == null) { chip.dataset.state = "attente"; chip.style.color = ""; $("figcap").textContent = "EN ATTENTE"; return; }
+    chip.dataset.state = FIGKEY[state];
+    chip.style.color = state === "TENDUE" && index >= 75 ? "#ff5d5d" : "";
+    $("figcap").textContent = state;
+  }
+
   function tick() {
     if (!running) return;
     const now = performance.now();
@@ -329,6 +409,7 @@
       tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "AUCUN VISAGE";
       setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
       hint.textContent = "Place ton visage dans le cadre"; hint.style.display = "block";
+      setFigure(null);
       return;
     }
     const g = gate(box.h);
@@ -336,11 +417,12 @@
       tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "TROP LOIN";
       setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
       hint.textContent = "Rapproche-toi de la caméra"; hint.style.display = "block";
+      setFigure(null);
       return;
     }
     hint.style.display = "none";
     const s = motionSignals(now);
-    if (!s) { emoEl.textContent = "CALIBRATION…"; return; }
+    if (!s) { emoEl.textContent = "CALIBRATION…"; setFigure(null); return; }
     const coverage = Object.values(s).filter((v) => v != null).length / 6;
     const conf = (0.45 + 0.5 * coverage) * (g.tier === "excellent" ? 1 : g.tier === "good" ? 0.92 : 0.8);
     const r = fuse(s, conf);
@@ -353,7 +435,12 @@
     indexHist.push({ t: now, v: r.index }); indexHist = indexHist.filter((p) => now - p.t <= 4000);
     const past = indexHist.filter((p) => now - p.t >= 2500);
     if (past.length) { const avg = past.reduce((a, p) => a + p.v, 0) / past.length; $("trend").textContent = r.index > avg + 2 ? "▲" : r.index < avg - 2 ? "▼" : ""; }
-    emoEl.textContent = s.freeze > 0.6 && r.index >= 45 ? "TENDUE" : s.head > 0.55 ? "AGITÉE" : s.freeze > 0.6 ? "CALME" : r.index >= 65 ? "TENDUE" : "NEUTRE";
+    const state = s.freeze > 0.72 && r.index >= 45 ? "FIGÉE"
+      : s.head > 0.55 ? "AGITÉE"
+      : r.index >= 55 ? "TENDUE"
+      : s.freeze > 0.6 ? "CALME" : "NEUTRE";
+    emoEl.textContent = state;
+    setFigure(state, r.index);
     confEl.textContent = r.confidence + "%";
     estimateRppg(now);
     $("rppg").textContent = rppgBpm ? "rPPG " + rppgBpm + " BPM" : "rPPG — BPM";
