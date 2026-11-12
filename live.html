@@ -286,48 +286,28 @@
   const roi = document.createElement("canvas"); roi.width = 48; roi.height = 32;
   let t0 = 0, lastSamplePush = 0;
 
-  let visionMod = null, visionSet = null, visionMode = "landmark-gpu", errStreak = 0, emptySince = 0, degrading = false;
+  let visionMod = null, visionSet = null, errStreak = 0, landmarkerDead = false;
   async function createLandmarker(delegate) {
     return visionMod.FaceLandmarker.createFromOptions(visionSet, {
       baseOptions: { modelAssetPath: "assets/mediapipe/face_landmarker.task", delegate },
       runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true,
-      minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
+      minFaceDetectionConfidence: 0.4, minFacePresenceConfidence: 0.4, minTrackingConfidence: 0.4 });
   }
   async function createDetector() {
     const opts = (delegate) => ({ baseOptions: { modelAssetPath: "assets/mediapipe/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
-    try { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("GPU")); }
-    catch (e) { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("CPU")); }
+    try { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("CPU")); }
+    catch (e) { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("GPU")); }
   }
   async function loadVision() {
     visionMod = await import("./assets/mediapipe/vision_bundle.mjs");
     visionSet = await visionMod.FilesetResolver.forVisionTasks("assets/mediapipe/wasm");
-    // CPU d'abord : le délégué GPU peut geler sans erreur dans certains navigateurs ;
-    // le CPU tient la cadence pour un visage. La dégradation mène ensuite au détecteur.
-    try { landmarker = await createLandmarker("CPU"); visionMode = "landmark-cpu"; }
-    catch (e) { landmarker = null; }
-    if (!landmarker) { detector = await createDetector(); visionMode = "detector"; }
-  }
-  // Si le graphe Landmarker tombe en erreur persistante (état interne corrompu, GPU muet…),
-  // on dégrade proprement : Landmarker CPU, puis détecteur simple. Jamais d'écran mort.
-  async function degrade() {
-    if (degrading) return; degrading = true;
-    try {
-      try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
-      landmarker = null;
-      if (visionMode === "landmark-gpu") {
-        visionMode = "landmark-cpu";
-        landmarker = await createLandmarker("CPU");
-      } else if (visionMode === "landmark-cpu") {
-        // Recréer un graphe neuf d'abord (un graphe en erreur ne se répare pas tout seul).
-        visionMode = "landmark-cpu2";
-        landmarker = await createLandmarker("CPU");
-      } else if (visionMode === "landmark-cpu2") {
-        visionMode = "detector";
-        detector = await createDetector();
-      }
-      errStreak = 0; emptySince = 0;
-    } catch (e) { /* on réessaiera au prochain trouble */ }
-    degrading = false;
+    // CPU d'abord : le délégué GPU peut geler sans erreur dans certains navigateurs.
+    // Les DEUX modèles vivent ensemble : le Landmarker (478 points + blendshapes) mène,
+    // le détecteur BlazeFace — plus sensible aux petits visages et aux profils — prend
+    // le relais dès que le Landmarker ne voit rien. On ne perd jamais le suivi.
+    try { landmarker = await createLandmarker("CPU"); } catch (e) { landmarker = null; landmarkerDead = true; }
+    try { detector = await createDetector(); } catch (e) { detector = null; }
+    if (!landmarker && !detector) throw new Error("vision indisponible");
   }
 
   function showError(msg) { const e = $("err"); e.textContent = msg; e.style.display = "block"; }
@@ -413,15 +393,16 @@
     const offX = (stageW - vw * scale) / 2, offY = (stageH - vh * scale) / 2;
     const toDisp = (rx, ry) => ({ x: stageW - (rx * vw * scale + offX), y: ry * vh * scale + offY });
     let sample = null;
-    try { sample = landmarker ? sampleLandmarker(now) : sampleDetector(now); errStreak = 0; }
-    catch (e) { errStreak++; if (errStreak >= 3 && visionMode !== "detector") degrade(); }
+    if (landmarker && !landmarkerDead) {
+      try { sample = sampleLandmarker(now); errStreak = 0; }
+      catch (e) { errStreak++; if (errStreak >= 5) { landmarkerDead = true; try { landmarker.close(); } catch (_) {} landmarker = null; } sample = null; }
+    }
+    if (!sample && detector) { try { sample = sampleDetector(now); } catch (e) { sample = null; } }
     if (!sample) {
       if (!noFaceSince) noFaceSince = now;
-      if (!emptySince) emptySince = now;
-      else if (now - emptySince > 6000 && faceMs === 0 && visionMode !== "detector" && errStreak === 0) degrade();
       track.style.display = "none"; return;
     }
-    noFaceSince = 0; emptySince = 0; faceMs += dt;
+    noFaceSince = 0; faceMs += dt;
     const { rawBox, dispBox, points, bs } = sample;
     if (!box) box = dispBox; else for (const k of ["x", "y", "w", "h"]) box[k] += (dispBox[k] - box[k]) * 0.45;
     pts = points;
