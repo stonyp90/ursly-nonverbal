@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ursly — Aperçu temps réel</title>
+<meta name="description" content="Aperçu temps réel Ursly : la caméra en plein écran, le même UI d'analyse que la vidéo par-dessus. Un indice de tension mesuré sur le mouvement — jamais un verdict de mensonge. Ton image reste sur ton appareil.">
+<style>
+  :root { --bg:#0a1220; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --green:#5eeaaa; --amber:#ffb703; --red:#ff5d5d; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
+
+  /* ---------- PLEIN ÉCRAN : la caméra, et le même UI que la vidéo par-dessus ---------- */
+  .stage { position:fixed; inset:0; overflow:hidden; background:#000; }
+  .stage video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
+  .frame-border { position:absolute; inset:clamp(10px, 3.2vmin, 40px); border:2px dotted rgba(76,201,240,.85); border-radius:20px; pointer-events:none; }
+
+  /* Cadre de suivi de la tête (même langage que la vidéo) */
+  .track { position:absolute; display:none; pointer-events:none; }
+  .track .box { position:absolute; inset:0; border:2px dotted rgba(76,201,240,.95); border-radius:14px; }
+  .track .tag { position:absolute; left:50%; transform:translateX(-50%); top:-30px; white-space:nowrap;
+    font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; font-weight:700; letter-spacing:.08em;
+    color:#dff4ff; background:rgba(7,18,33,.85); border:1px solid rgba(76,201,240,.6); border-radius:7px; padding:4px 9px; }
+  .track .eyeline { position:absolute; left:0; right:0; height:2px; background:rgba(160,230,255,.75); }
+  .track svg { position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .track svg line { stroke:rgba(160,230,255,.85); stroke-width:1.6; }
+  .track svg circle { fill:#a0e6ff; }
+
+  /* Panneau « ANALYSE EN COURS » — les mêmes composants que dans la vidéo */
+  .hud { position:absolute; top:clamp(24px, 6vmin, 64px); left:clamp(24px, 6vmin, 64px); width:min(330px, calc(100vw - 48px));
+    background:rgba(6,16,30,.80); border:1px solid rgba(76,201,240,.45); padding:12px 16px 11px; display:none;
+    font-family:ui-monospace, Menlo, Consolas, monospace; backdrop-filter:blur(3px); }
+  .hud .corner { position:absolute; width:14px; height:14px; border-color:var(--cyan); border-style:solid; border-width:0; }
+  .hud .c-tl { top:-1px; left:-1px; border-top-width:2px; border-left-width:2px; }
+  .hud .c-tr { top:-1px; right:-1px; border-top-width:2px; border-right-width:2px; }
+  .hud .c-bl { bottom:-1px; left:-1px; border-bottom-width:2px; border-left-width:2px; }
+  .hud .c-br { bottom:-1px; right:-1px; border-bottom-width:2px; border-right-width:2px; }
+  .hud-head { display:flex; justify-content:space-between; align-items:baseline; font-size:12px; font-weight:700; letter-spacing:.1em; color:#cfeaff; padding-bottom:8px; border-bottom:1px solid rgba(76,201,240,.25); }
+  .hud-head .t { color:var(--dim); font-weight:400; letter-spacing:.04em; }
+  .hud .row { display:flex; justify-content:space-between; align-items:baseline; margin-top:9px; }
+  .hud .lab { font-size:11.5px; letter-spacing:.18em; color:#a9c8de; }
+  .hud .big { font-size:37px; font-weight:800; line-height:1; color:#fff; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .hud .big small { font-size:19px; color:var(--dim); font-weight:600; }
+  .hud .trend { font-size:15px; color:var(--cyan); margin-left:5px; }
+  .hud .val { font-size:14.5px; font-weight:700; color:#eaf6ff; letter-spacing:.06em; }
+  .segbar { display:flex; gap:2px; margin-top:6px; }
+  .segbar i { flex:1; height:7px; background:rgba(120,160,190,.28); display:block; }
+  .segbar i.on { background:#7fd4f7; }
+  .hud .foot { margin-top:10px; font-size:12px; color:#a9c8de; letter-spacing:.05em; }
+  .hud .foot b { color:#eaf6ff; }
+  .hud .rppg { color:var(--green); }
+
+  /* Barre du bas : une ligne d'honnêteté, un bouton arrêter — rien d'autre */
+  .bottombar { position:absolute; left:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); bottom:clamp(20px, 5vmin, 48px);
+    display:none; justify-content:space-between; align-items:flex-end; gap:16px; pointer-events:none; }
+  .honest { font-size:11.5px; color:var(--dim); line-height:1.5; max-width:40em; text-shadow:0 1px 10px rgba(4,12,22,.9); }
+  .stopbtn { pointer-events:auto; flex:none; padding:10px 16px; border-radius:11px; border:1px solid #2b4a73; color:var(--ink);
+    background:rgba(16,28,48,.82); font-weight:600; font-size:14px; cursor:pointer; font-family:inherit; }
+  .stopbtn:hover { border-color:var(--cyan); }
+
+  .hint { position:absolute; left:50%; bottom:15%; transform:translateX(-50%); display:none;
+    font-size:13.5px; font-weight:600; color:#dff4ff; background:rgba(7,18,33,.85); border:1px solid rgba(76,201,240,.55);
+    border-radius:999px; padding:8px 16px; white-space:nowrap; }
+
+  /* Écran de départ : un seul geste */
+  .start { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 38%, #12283f, var(--bg)); padding:24px; }
+  .start .card { text-align:center; max-width:30em; }
+  .start .kicker { letter-spacing:.28em; font-size:12px; color:var(--cyan); font-weight:700; }
+  .start h1 { font-size:clamp(24px, 4.4vw, 40px); line-height:1.12; margin:14px 0 10px; }
+  .start p { color:var(--dim); font-size:14.5px; line-height:1.55; margin:0 0 22px; }
+  .start .go { padding:14px 24px; border-radius:12px; border:1px solid var(--cyan); background:var(--cyan); color:#04222f;
+    font-weight:700; font-size:16px; cursor:pointer; font-family:inherit; box-shadow:0 4px 24px rgba(4,20,32,.45); }
+  .start .go:disabled { opacity:.55; cursor:wait; }
+  .start .back { display:inline-block; margin-top:18px; color:var(--dim); font-size:13.5px; text-decoration:none; }
+  .start .back:hover { color:var(--ink); }
+  .err { display:none; margin:16px auto 0; max-width:30em; font-size:13.5px; line-height:1.55; color:#ffb3b3;
+    background:#2a1215; border:1px solid var(--red); border-radius:11px; padding:11px 14px; text-align:left; }
+
+  @media (max-width: 760px) {
+    .hud { width:min(290px, calc(100vw - 32px)); top:16px; left:16px; }
+    .hud .big { font-size:31px; }
+    .bottombar { left:16px; right:16px; bottom:16px; }
+    .honest { display:none; }
+  }
+</style>
+</head>
+<body>
+
+<main class="stage">
+  <video id="cam" autoplay playsinline muted></video>
+
+  <div class="track" id="track">
+    <div class="tag" id="trackTag">SUIVI TÊTE · ×1.00</div>
+    <div class="box"></div>
+    <div class="eyeline" id="eyeline"></div>
+    <svg id="landmarks" aria-hidden="true">
+      <line id="ln1"/><line id="ln2"/><line id="ln3"/>
+      <circle id="ptEyeL" r="3.2"/><circle id="ptEyeR" r="3.2"/><circle id="ptNose" r="3.2"/><circle id="ptMouth" r="3.2"/>
+    </svg>
+  </div>
+
+  <section class="hud" id="hud" aria-label="Analyse en cours">
+    <span class="corner c-tl"></span><span class="corner c-tr"></span><span class="corner c-bl"></span><span class="corner c-br"></span>
+    <div class="hud-head"><span>URSLY · ANALYSE EN COURS</span><span class="t" id="clock">T+0.00s</span></div>
+    <div class="row"><span class="lab">TENSION</span><span><span class="big" id="tension">—</span><span class="trend" id="trend"></span></span></div>
+    <div class="segbar" id="barTension"></div>
+    <div class="row"><span class="lab">COHÉRENCE</span><span class="val" id="coherence">—</span></div>
+    <div class="segbar" id="barCoherence"></div>
+    <div class="row"><span class="lab">ÉMOTION</span><span class="val" id="emotion">EN ATTENTE</span></div>
+    <div class="row foot"><span>CONFIANCE&nbsp;<b id="confidence">—</b></span><span class="rppg" id="rppg">rPPG — BPM</span></div>
+  </section>
+
+  <div class="frame-border" aria-hidden="true"></div>
+  <div class="hint" id="hint">Place ton visage dans le cadre</div>
+
+  <div class="bottombar" id="bottombar">
+    <div class="honest">Indice de tension mesuré sur le mouvement (tête, figement, répétition) — jamais un verdict de mensonge. ≈ 70–75 % en laboratoire, confiance affichée. Ton image reste sur ton appareil : rien n'est envoyé ni enregistré.</div>
+    <button class="stopbtn" id="stopBtn" type="button">Arrêter l'aperçu</button>
+  </div>
+
+  <div class="start" id="start">
+    <div class="card">
+      <div class="kicker">URSLY · TEMPS RÉEL</div>
+      <h1>L'aperçu, en plein écran.</h1>
+      <p>Ta caméra, avec par-dessus le même UI d'analyse que la vidéo : suivi de la tête, indice de tension mesuré, confiance affichée. Ton image reste sur ton appareil.</p>
+      <button class="go" id="goBtn" type="button">Ouvrir ma caméra</button>
+      <div class="err" id="err"></div>
+      <br><a class="back" href="index.html">← Retour à la vidéo</a>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  // --- Moteur de fusion (même sémantique que le moteur du produit) : entrées 0..1 par signal.
+  // Ici, seuls les signaux MESURABLES dans le navigateur sont alimentés (mouvement de la
+  // boîte faciale) ; les autres restent null et la confiance baisse en conséquence.
+  const WEIGHTS = { blink:0.18, gaze:0.16, head:0.14, repetition:0.18, tension:0.20, freeze:0.14 };
+  function fuse(s, conf) {
+    let v = 0, w = 0;
+    for (const k in WEIGHTS) if (s[k] != null) { v += s[k] * WEIGHTS[k]; w += WEIGHTS[k]; }
+    if (!w) return null;
+    const idx = Math.round(5 + (v / w) * 90);           // borné 5..95, jamais 0/100
+    return { index: idx, confidence: Math.round(conf * 100) };
+  }
+  // --- Porte qualité : on ne score pas un flux trop faible.
+  function gate(faceHpx) {
+    if (faceHpx < 90)  return { tier:"insufficient", score:false };
+    if (faceHpx < 150) return { tier:"basic",        score:true  };
+    if (faceHpx < 260) return { tier:"good",         score:true  };
+    return { tier:"excellent", score:true };
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const cam = $("cam"), hud = $("hud"), track = $("track"), hint = $("hint");
+  const SEG = 28;
+  for (const bar of [$("barTension"), $("barCoherence")]) for (let i = 0; i < SEG; i++) bar.appendChild(document.createElement("i"));
+  function setBar(bar, pct) { const on = pct == null ? 0 : Math.round(pct / 100 * SEG); [...bar.children].forEach((s, i) => s.className = i < on ? "on" : ""); }
+
+  let detector = null, stream = null, running = false, raf = 0, tickTimer = 0;
+  let box = null;                 // boîte lissée {x,y,w,h} en coordonnées vidéo relatives
+  let keypts = null;              // points MediaPipe relatifs
+  let baseW = null;               // largeur de référence (baseline personnelle, 2 premières secondes)
+  let baseSamples = [];
+  let trackHist = [];             // {t, cx, cy, w} pour les signaux de mouvement
+  let indexHist = [];             // {t, v} pour tendance + cohérence d'affichage
+  let t0 = 0, lastDetect = 0, noFaceSince = 0;
+  let rppgBuf = [];               // {t, g} moyenne du vert sur le front
+  let rppgBpm = null, rppgLastTry = 0;
+  const roi = document.createElement("canvas"); roi.width = 48; roi.height = 32;
+
+  async function loadDetector() {
+    const { FaceDetector, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    const opts = (delegate) => ({ baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
+    try { return await FaceDetector.createFromOptions(vision, opts("GPU")); }
+    catch (e) { return await FaceDetector.createFromOptions(vision, opts("CPU")); }
+  }
+
+  function showError(msg) { const e = $("err"); e.textContent = msg; e.style.display = "block"; }
+  function camError(e) {
+    const n = e && e.name ? e.name : "";
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+      showError("Ce navigateur ne donne pas accès à la caméra ici. Ouvre cette page dans Safari ou Chrome directement (pas dans l'aperçu d'une autre app), puis retouche le bouton.");
+    else if (n === "NotAllowedError")
+      showError("La caméra est refusée pour ce site. Dans la barre d'adresse, touche le cadenas (ou « AA » dans Safari) → réglages du site → Caméra → Autoriser. Sur Mac, vérifie aussi Réglages Système → Confidentialité et sécurité → Caméra. Puis retouche le bouton.");
+    else if (n === "NotFoundError" || n === "OverconstrainedError")
+      showError("Aucune caméra trouvée. Vérifie qu'une caméra est disponible et qu'aucune autre app ne l'utilise (Zoom, FaceTime), puis retouche le bouton.");
+    else if (n === "NotReadableError")
+      showError("La caméra est occupée par une autre application. Ferme-la (Zoom, FaceTime, Photo Booth), puis retouche le bouton.");
+    else
+      showError("La caméra n'a pas démarré (" + (n || "erreur inconnue") + "). Réessaie; si ça persiste, note ce message mot pour mot.");
+  }
+
+  $("goBtn").onclick = async () => {
+    const btn = $("goBtn"); btn.disabled = true; btn.textContent = "Démarrage…";
+    try {
+      if (!detector) detector = await loadDetector();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+    } catch (e) {
+      btn.disabled = false; btn.textContent = "Ouvrir ma caméra";
+      if (e && (e.name || "").startsWith("Not")) camError(e);
+      else if (e && e.name === "NotReadableError") camError(e);
+      else showError("Le suivi de visage n'a pas pu démarrer (connexion requise pour le modèle). Vérifie ta connexion, puis retouche le bouton.");
+      return;
+    }
+    cam.srcObject = stream;
+    await cam.play().catch(() => {});
+    cam.style.display = "block"; hud.style.display = "block"; $("bottombar").style.display = "flex";
+    $("start").style.display = "none";
+    box = null; baseW = null; baseSamples = []; trackHist = []; indexHist = []; rppgBuf = []; rppgBpm = null;
+    t0 = performance.now(); noFaceSince = 0; running = true;
+    raf = requestAnimationFrame(loop);
+    tickTimer = setInterval(tick, 500);
+  };
+
+  $("stopBtn").onclick = () => {
+    running = false; cancelAnimationFrame(raf); clearInterval(tickTimer);
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = null; cam.srcObject = null; cam.style.display = "none";
+    hud.style.display = "none"; track.style.display = "none"; hint.style.display = "none";
+    $("bottombar").style.display = "none"; $("start").style.display = "flex";
+    const btn = $("goBtn"); btn.disabled = false; btn.textContent = "Ouvrir ma caméra";
+  };
+
+  function loop(now) {
+    if (!running) return;
+    raf = requestAnimationFrame(loop);
+    if (cam.readyState < 2 || now - lastDetect < 50) return;
+    lastDetect = now;
+    let res = null;
+    try { res = detector.detectForVideo(cam, now); } catch (e) { /* image pas prête */ }
+    const det = res && res.detections && res.detections[0];
+    const stageW = cam.clientWidth, stageH = cam.clientHeight;
+    // object-fit:cover → recadrer les coordonnées relatives dans l'espace affiché
+    const vw = cam.videoWidth || 1, vh = cam.videoHeight || 1;
+    const scale = Math.max(stageW / vw, stageH / vh);
+    const offX = (stageW - vw * scale) / 2, offY = (stageH - vh * scale) / 2;
+    const toDisp = (rx, ry) => ({ x: stageW - (rx * vw * scale + offX), y: ry * vh * scale + offY }); // x miroir (aperçu selfie)
+    if (det) {
+      noFaceSince = 0;
+      const b = det.boundingBox;
+      const tl = toDisp((b.originX + b.width) / vw, b.originY / vh);
+      const disp = { x: tl.x, y: tl.y, w: b.width * scale, h: b.height * scale };
+      if (!box) box = disp;
+      else for (const k of ["x", "y", "w", "h"]) box[k] += (disp[k] - box[k]) * 0.35;
+      const KP_NAMES = ["right_eye", "left_eye", "nose_tip", "mouth_center", "right_ear_tragion", "left_ear_tragion"];
+      keypts = (det.keypoints || []).map((p, i) => { const d = toDisp(p.x, p.y); return { x: d.x - box.x, y: d.y - box.y, name: p.name || KP_NAMES[i] }; });
+      // baseline personnelle : médiane des largeurs des ~2 premières secondes
+      if (baseW == null) { baseSamples.push(box.w); if (baseSamples.length >= 24) { baseSamples.sort((a, c) => a - c); baseW = baseSamples[Math.floor(baseSamples.length / 2)]; } }
+      trackHist.push({ t: now, cx: box.x + box.w / 2, cy: box.y + box.h / 2, w: box.w });
+      if (trackHist.length > 240) trackHist.shift();
+      // rPPG : moyenne du canal vert sur le front (bande haute-centre du visage)
+      try {
+        const c = roi.getContext("2d");
+        c.drawImage(cam, b.originX + b.width * 0.30, b.originY + b.height * 0.06, b.width * 0.40, b.height * 0.22, 0, 0, 48, 32);
+        const d = c.getImageData(0, 0, 48, 32).data; let g = 0;
+        for (let i = 1; i < d.length; i += 4) g += d[i];
+        rppgBuf.push({ t: now, g: g / (d.length / 4) });
+        if (rppgBuf.length > 300) rppgBuf.shift();
+      } catch (e) { /* ROI hors cadre */ }
+      drawTrack();
+    } else {
+      if (!noFaceSince) noFaceSince = now;
+      track.style.display = "none";
+    }
+  }
+
+  function drawTrack() {
+    const padW = box.w * 0.10, padTop = box.h * 0.16, padBot = box.h * 0.06;
+    const x = box.x - padW, y = box.y - padTop, w = box.w + padW * 2, h = box.h + padTop + padBot;
+    track.style.display = "block";
+    track.style.left = x + "px"; track.style.top = y + "px"; track.style.width = w + "px"; track.style.height = h + "px";
+    $("trackTag").textContent = "SUIVI TÊTE · ×" + (baseW ? (box.w / baseW).toFixed(2) : "1.00");
+    const kp = (n) => keypts && keypts.find((p) => p.name === n);
+    const eL = kp("left_eye"), eR = kp("right_eye"), nose = kp("nose_tip"), mouth = kp("mouth_center");
+    const eyeY = eL && eR ? (eL.y + eR.y) / 2 + padTop : h * 0.34;
+    $("eyeline").style.top = eyeY + "px";
+    const svg = $("landmarks");
+    const put = (id, p) => { const el = $(id); if (p) { el.setAttribute("cx", p.x + padW); el.setAttribute("cy", p.y + padTop); el.style.display = ""; } else el.style.display = "none"; };
+    const line = (id, a, b) => { const el = $(id); if (a && b) { el.setAttribute("x1", a.x + padW); el.setAttribute("y1", a.y + padTop); el.setAttribute("x2", b.x + padW); el.setAttribute("y2", b.y + padTop); el.style.display = ""; } else el.style.display = "none"; };
+    put("ptEyeL", eL); put("ptEyeR", eR); put("ptNose", nose); put("ptMouth", mouth);
+    line("ln1", eL, nose); line("ln2", eR, nose); line("ln3", nose, mouth);
+  }
+
+  function motionSignals(now) {
+    const win = trackHist.filter((p) => now - p.t <= 1600);
+    if (win.length < 6 || !box) return null;
+    let path = 0;
+    for (let i = 1; i < win.length; i++) path += Math.hypot(win[i].cx - win[i - 1].cx, win[i].cy - win[i - 1].cy) + Math.abs(win[i].w - win[i - 1].w) * 0.6;
+    const motion = Math.min(1, (path / (win.length - 1)) / (box.w * 0.055));
+    // répétition : allers-retours de la position horizontale sur ~4 s
+    const win4 = trackHist.filter((p) => now - p.t <= 4000);
+    let reversals = 0, prevDir = 0;
+    for (let i = 1; i < win4.length; i++) { const d = win4[i].cx - win4[i - 1].cx; if (Math.abs(d) > 0.6) { const dir = Math.sign(d); if (prevDir && dir !== prevDir) reversals++; prevDir = dir; } }
+    const repetition = Math.min(1, reversals / 9);
+    const freeze = Math.max(0, 1 - motion * 3.2);
+    return { blink: null, gaze: null, head: motion, repetition, tension: null, freeze };
+  }
+
+  function estimateRppg(now) {
+    if (now - rppgLastTry < 2000 || rppgBuf.length < 130) return;
+    rppgLastTry = now;
+    const data = rppgBuf.filter((p) => now - p.t <= 10000);
+    if (data.length < 130 || now - data[0].t < 8000) return;
+    const n = data.length, mean = data.reduce((a, p) => a + p.g, 0) / n;
+    const t0s = data[0].t, dur = (data[n - 1].t - t0s) / 1000;
+    let best = null;
+    for (let f = 0.7; f <= 3.0; f += 0.04) {
+      let re = 0, im = 0;
+      for (let i = 0; i < n; i++) { const t = (data[i].t - t0s) / 1000; const v = (data[i].g - mean) * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1))); const a = 2 * Math.PI * f * t; re += v * Math.cos(a); im -= v * Math.sin(a); }
+      const p = re * re + im * im;
+      if (!best || p > best.p) best = { p, f };
+    }
+    // bruit de fond spectral : puissance médiane approximée par la moyenne hors pic
+    let sum = 0, cnt = 0;
+    for (let f = 0.7; f <= 3.0; f += 0.23) { if (Math.abs(f - best.f) < 0.15) continue; let re = 0, im = 0; for (let i = 0; i < n; i++) { const t = (data[i].t - t0s) / 1000; const v = data[i].g - mean; const a = 2 * Math.PI * f * t; re += v * Math.cos(a); im -= v * Math.sin(a); } sum += re * re + im * im; cnt++; }
+    const snr = best.p / Math.max(1e-9, sum / cnt);
+    if (snr > 5 && dur >= 8) { const bpm = Math.round(best.f * 60); rppgBpm = rppgBpm ? Math.round(rppgBpm * 0.6 + bpm * 0.4) : bpm; }
+  }
+
+  function tick() {
+    if (!running) return;
+    const now = performance.now();
+    $("clock").textContent = "T+" + ((now - t0) / 1000).toFixed(2) + "s";
+    const tensionEl = $("tension"), cohEl = $("coherence"), emoEl = $("emotion"), confEl = $("confidence");
+    const faceAge = trackHist.length ? now - trackHist[trackHist.length - 1].t : Infinity;
+    if (!box || faceAge > 700) {
+      tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "AUCUN VISAGE";
+      setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
+      hint.textContent = "Place ton visage dans le cadre"; hint.style.display = "block";
+      return;
+    }
+    const g = gate(box.h);
+    if (!g.score) {
+      tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "TROP LOIN";
+      setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
+      hint.textContent = "Rapproche-toi de la caméra"; hint.style.display = "block";
+      return;
+    }
+    hint.style.display = "none";
+    const s = motionSignals(now);
+    if (!s) { emoEl.textContent = "CALIBRATION…"; return; }
+    const coverage = Object.values(s).filter((v) => v != null).length / 6;
+    const conf = (0.45 + 0.5 * coverage) * (g.tier === "excellent" ? 1 : g.tier === "good" ? 0.92 : 0.8);
+    const r = fuse(s, conf);
+    if (!r) return;
+    tensionEl.innerHTML = (r.index).toFixed(0) + "<small>%</small>";
+    const agit = 1 - s.freeze;
+    const coh = Math.max(0, Math.min(100, 100 * (1 - (Math.abs(s.head - s.repetition) + Math.abs(s.head - agit) + Math.abs(s.repetition - agit)) / 3)));
+    cohEl.textContent = coh.toFixed(1) + "%";
+    setBar($("barTension"), r.index); setBar($("barCoherence"), coh);
+    indexHist.push({ t: now, v: r.index }); indexHist = indexHist.filter((p) => now - p.t <= 4000);
+    const past = indexHist.filter((p) => now - p.t >= 2500);
+    if (past.length) { const avg = past.reduce((a, p) => a + p.v, 0) / past.length; $("trend").textContent = r.index > avg + 2 ? "▲" : r.index < avg - 2 ? "▼" : ""; }
+    emoEl.textContent = s.freeze > 0.6 && r.index >= 45 ? "TENDUE" : s.head > 0.55 ? "AGITÉE" : s.freeze > 0.6 ? "CALME" : r.index >= 65 ? "TENDUE" : "NEUTRE";
+    confEl.textContent = r.confidence + "%";
+    estimateRppg(now);
+    $("rppg").textContent = rppgBpm ? "rPPG " + rppgBpm + " BPM" : "rPPG — BPM";
+  }
+</script>
+
+</body>
+</html>
