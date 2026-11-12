@@ -301,8 +301,10 @@
   async function loadVision() {
     visionMod = await import("./assets/mediapipe/vision_bundle.mjs");
     visionSet = await visionMod.FilesetResolver.forVisionTasks("assets/mediapipe/wasm");
-    try { landmarker = await createLandmarker("GPU"); visionMode = "landmark-gpu"; }
-    catch (e) { try { landmarker = await createLandmarker("CPU"); visionMode = "landmark-cpu"; } catch (e2) { landmarker = null; } }
+    // CPU d'abord : le délégué GPU peut geler sans erreur dans certains navigateurs ;
+    // le CPU tient la cadence pour un visage. La dégradation mène ensuite au détecteur.
+    try { landmarker = await createLandmarker("CPU"); visionMode = "landmark-cpu"; }
+    catch (e) { landmarker = null; }
     if (!landmarker) { detector = await createDetector(); visionMode = "detector"; }
   }
   // Si le graphe Landmarker tombe en erreur persistante (état interne corrompu, GPU muet…),
@@ -310,13 +312,17 @@
   async function degrade() {
     if (degrading) return; degrading = true;
     try {
+      try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
+      landmarker = null;
       if (visionMode === "landmark-gpu") {
-        try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
-        landmarker = null; visionMode = "landmark-cpu";
+        visionMode = "landmark-cpu";
         landmarker = await createLandmarker("CPU");
       } else if (visionMode === "landmark-cpu") {
-        try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
-        landmarker = null; visionMode = "detector";
+        // Recréer un graphe neuf d'abord (un graphe en erreur ne se répare pas tout seul).
+        visionMode = "landmark-cpu2";
+        landmarker = await createLandmarker("CPU");
+      } else if (visionMode === "landmark-cpu2") {
+        visionMode = "detector";
         detector = await createDetector();
       }
       errStreak = 0; emptySince = 0;
