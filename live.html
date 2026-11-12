@@ -460,7 +460,7 @@
     const sc = Math.max(stageW / vw, stageH / vh), oX = (stageW - vw * sc) / 2, oY = (stageH - vh * sc) / 2;
     const td = (rx, ry) => ({ x: stageW - (rx * vw * sc + oX), y: ry * vh * sc + oY });
     const tl = td(maxX, minY);
-    const dispBox = { x: tl.x, y: tl.y, w: rawBox.w * sc, h: rawBox.h * sc };
+    const dispBox = { x: tl.x, y: tl.y, w: rawBox.w * vw * sc, h: rawBox.h * vh * sc };
     const eyeC = (idxs) => { let x = 0, y = 0; for (const i of idxs) { x += L[i].x; y += L[i].y; } const d = td(x / idxs.length, y / idxs.length); return { x: d.x - dispBox.x, y: d.y - dispBox.y }; };
     const P = (i) => { const d = td(L[i].x, L[i].y); return { x: d.x - dispBox.x, y: d.y - dispBox.y }; };
     const eyeL = L[473] ? P(473) : eyeC([263, 362, 386, 374]);
