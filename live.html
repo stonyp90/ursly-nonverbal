@@ -4,17 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ursly — Aperçu temps réel</title>
-<meta name="description" content="Aperçu temps réel Ursly : la caméra en plein écran, le même UI d'analyse que la vidéo par-dessus. Un indice de tension mesuré sur le mouvement — jamais un verdict de mensonge. Ton image reste sur ton appareil.">
+<meta name="description" content="Aperçu temps réel Ursly : la caméra en plein écran, le même UI d'analyse que la vidéo par-dessus, des signaux réellement mesurés (clignements, regard, tension faciale, mouvement) et une baseline personnelle apprise à chaque session. La session est enregistrée sur ton appareil ; un court test à la fin recueille tes retours.">
 <style>
   :root { --bg:#0a1220; --ink:#e8f1f8; --dim:#8fb0c9; --cyan:#4cc9f0; --green:#5eeaaa; --amber:#ffb703; --red:#ff5d5d; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body { margin:0; font-family:-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); overflow:hidden; }
 
-  /* ---------- PLEIN ÉCRAN : la caméra, et le même UI que la vidéo par-dessus ---------- */
+  /* ---------- PLEIN ÉCRAN : la caméra, et tout vit sur le layer par-dessus ---------- */
   .stage { position:fixed; inset:0; overflow:hidden; background:#000; }
-  .stage video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
-  .frame-border { position:absolute; inset:clamp(10px, 3.2vmin, 40px); border:2px dotted rgba(76,201,240,.85); border-radius:20px; pointer-events:none; }
+  .stage video.cam { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); display:none; }
+
+  .brandmark { position:absolute; top:clamp(18px, 4.5vmin, 44px); left:clamp(18px, 4.5vmin, 44px); background:rgba(6,16,30,.55); border-radius:12px; padding:9px 13px; backdrop-filter:blur(3px); z-index:5; }
+  .brandmark img { display:block; height:30px; width:auto; }
+  @media (max-width: 760px) { .brandmark img { height:24px; } .brandmark { padding:7px 10px; } }
 
   /* Cadre de suivi de la tête (même langage que la vidéo) */
   .track { position:absolute; display:none; pointer-events:none; }
@@ -27,26 +30,9 @@
   .track svg line { stroke:rgba(160,230,255,.85); stroke-width:1.6; }
   .track svg circle { fill:#a0e6ff; }
   .track svg circle.ring { fill:none; stroke:rgba(160,230,255,.9); stroke-width:1.4; }
-  /* Étiquettes des sens, posées sur les organes */
   .slabel { position:absolute; transform:translate(-50%,-50%); display:none; pointer-events:none;
     font-family:ui-monospace, Menlo, Consolas, monospace; font-size:9.5px; font-weight:700; letter-spacing:.14em;
     color:#dff4ff; background:rgba(7,18,33,.85); border:1px solid rgba(76,201,240,.5); border-radius:5px; padding:2px 5px; white-space:nowrap; }
-
-  /* Petit bonhomme d'état, en haut à droite — l'émotion estimée, en un coup d'œil */
-  .figchip { position:absolute; top:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); display:none;
-    background:rgba(6,16,30,.80); border:1px solid rgba(76,201,240,.45); border-radius:14px; padding:9px 12px 7px;
-    text-align:center; backdrop-filter:blur(3px); color:#8fb0c9; }
-  .figchip svg { display:block; margin:0 auto; }
-  .figchip .fig-state { display:none; }
-  .figchip[data-state="calme"] .fs-calme, .figchip[data-state="neutre"] .fs-neutre,
-  .figchip[data-state="tendue"] .fs-tendue, .figchip[data-state="agitee"] .fs-agitee,
-  .figchip[data-state="figee"] .fs-figee, .figchip[data-state="attente"] .fs-neutre { display:block; }
-  .figchip[data-state="calme"] { color:#5eeaaa; } .figchip[data-state="tendue"] { color:#ffb703; }
-  .figchip[data-state="agitee"] { color:#ffb703; } .figchip[data-state="figee"] { color:#a0e6ff; }
-  .figchip[data-state="attente"] { color:#5b7d99; opacity:.6; }
-  .figchip[data-state="agitee"] svg { animation:sway .45s ease-in-out infinite alternate; transform-origin:50% 85%; }
-  @keyframes sway { from { transform:rotate(-2.6deg); } to { transform:rotate(2.6deg); } }
-  .figcap { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:10.5px; font-weight:700; letter-spacing:.16em; color:#cfeaff; margin-top:3px; }
 
   /* Panneau « ANALYSE EN COURS » — les mêmes composants que dans la vidéo */
   .hud { position:absolute; top:clamp(24px, 6vmin, 64px); left:clamp(24px, 6vmin, 64px); width:min(330px, calc(100vw - 48px));
@@ -72,13 +58,34 @@
   .hud .foot b { color:#eaf6ff; }
   .hud .rppg { color:var(--green); }
 
-  /* Barre du bas : une ligne d'honnêteté, un bouton arrêter — rien d'autre */
+  /* Petit bonhomme d'état, en haut à droite */
+  .figchip { position:absolute; top:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); display:none;
+    background:rgba(6,16,30,.80); border:1px solid rgba(76,201,240,.45); border-radius:14px; padding:9px 12px 7px;
+    text-align:center; backdrop-filter:blur(3px); color:#8fb0c9; }
+  .figchip svg { display:block; margin:0 auto; }
+  .figchip .fig-state { display:none; }
+  .figchip[data-state="calme"] .fs-calme, .figchip[data-state="neutre"] .fs-neutre,
+  .figchip[data-state="tendue"] .fs-tendue, .figchip[data-state="agitee"] .fs-agitee,
+  .figchip[data-state="figee"] .fs-figee, .figchip[data-state="attente"] .fs-neutre { display:block; }
+  .figchip[data-state="calme"] { color:#5eeaaa; } .figchip[data-state="tendue"] { color:#ffb703; }
+  .figchip[data-state="agitee"] { color:#ffb703; } .figchip[data-state="figee"] { color:#a0e6ff; }
+  .figchip[data-state="attente"] { color:#5b7d99; opacity:.6; }
+  .figchip[data-state="agitee"] svg { animation:sway .45s ease-in-out infinite alternate; transform-origin:50% 85%; }
+  @keyframes sway { from { transform:rotate(-2.6deg); } to { transform:rotate(2.6deg); } }
+  .figcap { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:10.5px; font-weight:700; letter-spacing:.16em; color:#cfeaff; margin-top:3px; }
+
+  .recpill { position:absolute; top:clamp(18px, 4.5vmin, 44px); left:50%; transform:translateX(-50%); display:none;
+    font-family:ui-monospace, Menlo, Consolas, monospace; font-size:12px; font-weight:700; letter-spacing:.12em;
+    color:#ffd9d9; background:rgba(30,8,12,.72); border:1px solid rgba(255,93,93,.55); border-radius:999px; padding:6px 13px; }
+  .recpill .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--red); margin-right:7px; animation:pulse 1.4s ease-in-out infinite; vertical-align:1px; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.2; } }
+
   .bottombar { position:absolute; left:clamp(24px, 6vmin, 64px); right:clamp(24px, 6vmin, 64px); bottom:clamp(20px, 5vmin, 48px);
     display:none; justify-content:space-between; align-items:flex-end; gap:16px; pointer-events:none; }
   .honest { font-size:11.5px; color:var(--dim); line-height:1.5; max-width:40em; text-shadow:0 1px 10px rgba(4,12,22,.9); }
-  .stopbtn { pointer-events:auto; flex:none; padding:10px 16px; border-radius:11px; border:1px solid #2b4a73; color:var(--ink);
-    background:rgba(16,28,48,.82); font-weight:600; font-size:14px; cursor:pointer; font-family:inherit; }
-  .stopbtn:hover { border-color:var(--cyan); }
+  .stopbtn { pointer-events:auto; flex:none; padding:11px 17px; border-radius:11px; border:1px solid var(--cyan); color:#04222f;
+    background:var(--cyan); font-weight:700; font-size:14px; cursor:pointer; font-family:inherit; }
+  .stopbtn:hover { filter:brightness(1.07); }
 
   .hint { position:absolute; left:50%; bottom:15%; transform:translateX(-50%); display:none;
     font-size:13.5px; font-weight:600; color:#dff4ff; background:rgba(7,18,33,.85); border:1px solid rgba(76,201,240,.55);
@@ -86,7 +93,7 @@
 
   /* Écran de départ : un seul geste */
   .start { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:radial-gradient(ellipse at 50% 38%, #12283f, var(--bg)); padding:24px; }
-  .start .card { text-align:center; max-width:30em; }
+  .start .card { text-align:center; max-width:32em; }
   .start .kicker { letter-spacing:.28em; font-size:12px; color:var(--cyan); font-weight:700; }
   .start h1 { font-size:clamp(24px, 4.4vw, 40px); line-height:1.12; margin:14px 0 10px; }
   .start p { color:var(--dim); font-size:14.5px; line-height:1.55; margin:0 0 22px; }
@@ -98,6 +105,45 @@
   .err { display:none; margin:16px auto 0; max-width:30em; font-size:13.5px; line-height:1.55; color:#ffb3b3;
     background:#2a1215; border:1px solid var(--red); border-radius:11px; padding:11px 14px; text-align:left; }
 
+  /* Écran du test : la vidéo rejouée plein écran, le questionnaire sur le layer du bas */
+  .test { position:absolute; inset:0; display:none; background:#000; }
+  .test video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  .test .veil { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,18,32,.25) 0%, rgba(10,18,32,0) 35%, rgba(10,18,32,.88) 78%); pointer-events:none; }
+  .sheet { position:absolute; left:50%; transform:translateX(-50%); bottom:clamp(14px, 4vmin, 40px); width:min(680px, calc(100vw - 28px));
+    max-height:62%; overflow-y:auto; background:rgba(6,16,30,.90); border:1px solid rgba(76,201,240,.45); border-radius:18px;
+    padding:18px 22px 20px; backdrop-filter:blur(4px); }
+  .sumrow { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }
+  .sum { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11.5px; letter-spacing:.05em; color:#cfeaff;
+    border:1px solid rgba(76,201,240,.35); border-radius:999px; padding:5px 11px; background:rgba(16,28,48,.7); }
+  .sum b { color:#fff; }
+  .tstep { display:none; }
+  .tstep.on { display:block; }
+  .tstep .q { font-size:17px; font-weight:700; line-height:1.35; margin:2px 0 12px; }
+  .tstep .q small { display:block; font-size:12.5px; font-weight:400; color:var(--dim); margin-top:4px; }
+  .tstep .prog { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:11px; letter-spacing:.18em; color:var(--cyan); margin-bottom:8px; }
+  .optrow { display:flex; flex-wrap:wrap; gap:9px; }
+  .opt { display:flex; align-items:center; gap:8px; padding:9px 14px 9px 10px; border-radius:12px; cursor:pointer;
+    border:1px solid #2b4a73; background:rgba(16,28,48,.85); color:var(--ink); font-weight:600; font-size:14px; font-family:inherit; }
+  .opt:hover { border-color:var(--cyan); }
+  .opt.sel { border-color:var(--cyan); background:rgba(76,201,240,.16); }
+  .opt svg { display:block; }
+  .vbtn { padding:10px 18px; border-radius:11px; cursor:pointer; border:1px solid #2b4a73; background:rgba(16,28,48,.85);
+    color:var(--ink); font-weight:700; font-size:14.5px; font-family:inherit; }
+  .vbtn:hover { border-color:var(--cyan); }
+  .vbtn.sel { background:var(--cyan); color:#04222f; border-color:var(--cyan); }
+  .seekbtn { padding:8px 13px; border-radius:999px; cursor:pointer; border:1px solid rgba(76,201,240,.55); background:rgba(7,18,33,.8);
+    color:#a0e6ff; font-weight:600; font-size:12.5px; font-family:inherit; margin-bottom:12px; }
+  .ratherrow { display:none; margin-top:12px; }
+  .ratherrow.on { display:block; }
+  .ratherrow .rlab { font-size:12.5px; color:var(--dim); margin-bottom:8px; }
+  .sheet textarea { width:100%; min-height:74px; border-radius:11px; border:1px solid #2b4a73; background:rgba(10,20,36,.9);
+    color:var(--ink); font-family:inherit; font-size:14.5px; padding:11px 13px; resize:vertical; }
+  .sheet .bigbtn { margin-top:14px; padding:12px 20px; border-radius:12px; border:1px solid var(--cyan); background:var(--cyan);
+    color:#04222f; font-weight:700; font-size:15px; cursor:pointer; font-family:inherit; }
+  .sheet .ghostbtn { margin-top:14px; margin-left:9px; padding:12px 18px; border-radius:12px; border:1px solid #2b4a73;
+    background:rgba(16,28,48,.85); color:var(--ink); font-weight:600; font-size:14.5px; cursor:pointer; font-family:inherit; }
+  .sheet .note { font-size:12.5px; color:var(--dim); line-height:1.55; margin-top:12px; }
+
   @media (max-width: 760px) {
     .hud { width:min(262px, calc(100vw - 32px)); top:16px; left:16px; }
     .hud .big { font-size:31px; }
@@ -105,14 +151,15 @@
     .figchip svg { width:40px; height:50px; }
     .bottombar { left:16px; right:16px; bottom:16px; }
     .honest { display:none; }
+    .sheet { padding:15px 16px 17px; }
   }
-  @media (prefers-reduced-motion: reduce) { .figchip[data-state="agitee"] svg { animation:none; } }
+  @media (prefers-reduced-motion: reduce) { .figchip[data-state="agitee"] svg { animation:none; } .recpill .dot { animation:none; } }
 </style>
 </head>
 <body>
 
 <main class="stage">
-  <video id="cam" autoplay playsinline muted></video>
+  <video id="cam" class="cam" autoplay playsinline muted></video>
 
   <div class="track" id="track">
     <div class="tag" id="trackTag">SUIVI TÊTE · ×1.00</div>
@@ -130,39 +177,6 @@
     <span class="slabel" id="labGout">GOÛT</span>
   </div>
 
-  <div class="figchip" id="figchip" data-state="attente" aria-label="État estimé">
-    <svg width="48" height="60" viewBox="0 0 60 74" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <g class="fig-state fs-calme">
-        <circle cx="30" cy="14" r="7"/><path d="M26 15 Q30 19 34 15" stroke-width="2.4"/>
-        <path d="M30 21 V44 M30 27 L20 38 M30 27 L40 38 M30 44 L23 64 M30 44 L37 64"/>
-      </g>
-      <g class="fig-state fs-neutre">
-        <circle cx="30" cy="14" r="7"/><path d="M26 16 H34" stroke-width="2.4"/>
-        <path d="M30 21 V44 M30 27 L22 44 M30 27 L38 44 M30 44 L23 64 M30 44 L37 64"/>
-      </g>
-      <g class="fig-state fs-tendue">
-        <circle cx="30" cy="14" r="7"/>
-        <path d="M23 9 L28 12 M37 9 L32 12" stroke-width="2.4"/><path d="M25 18 L28 16 L31 18 L34 16" stroke-width="2.2"/>
-        <path d="M14 7 L11 4 M46 7 L49 4" stroke-width="2.2"/>
-        <path d="M30 21 V44 M30 27 L19 20 L17 12 M30 27 L41 20 L43 12 M30 44 L23 64 M30 44 L37 64"/>
-        <circle cx="17" cy="10" r="2.8" fill="currentColor" stroke="none"/><circle cx="43" cy="10" r="2.8" fill="currentColor" stroke="none"/>
-      </g>
-      <g class="fig-state fs-agitee">
-        <g transform="rotate(-6 30 40)">
-          <circle cx="30" cy="14" r="7"/><circle cx="30" cy="16.5" r="1.9" fill="currentColor" stroke="none"/>
-          <path d="M30 21 V44 M30 27 L14 30 M30 27 L46 24 M30 44 L20 63 M30 44 L40 60"/>
-        </g>
-        <path d="M7 24 q-4 10 0 20 M53 18 q4 10 0 20" stroke-width="2.2" opacity=".65"/>
-      </g>
-      <g class="fig-state fs-figee">
-        <circle cx="30" cy="14" r="11.5" stroke-width="1.6" stroke-dasharray="3 4" opacity=".8"/>
-        <circle cx="30" cy="14" r="7"/><path d="M26 16 H34" stroke-width="2.4"/>
-        <path d="M30 21 V44 M30 27 L25.5 45 M30 27 L34.5 45 M30 44 L26 64 M30 44 L34 64"/>
-      </g>
-    </svg>
-    <div class="figcap" id="figcap">EN ATTENTE</div>
-  </div>
-
   <section class="hud" id="hud" aria-label="Analyse en cours">
     <span class="corner c-tl"></span><span class="corner c-tr"></span><span class="corner c-bl"></span><span class="corner c-br"></span>
     <div class="hud-head"><span>URSLY · ANALYSE EN COURS</span><span class="t" id="clock">T+0.00s</span></div>
@@ -174,45 +188,86 @@
     <div class="row foot"><span>CONFIANCE&nbsp;<b id="confidence">—</b></span><span class="rppg" id="rppg">rPPG — BPM</span></div>
   </section>
 
-  <div class="frame-border" aria-hidden="true"></div>
+  <div class="figchip" id="figchip" data-state="attente" aria-label="État estimé">
+    <svg width="48" height="60" viewBox="0 0 60 74" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g class="fig-state fs-calme">
+        <circle cx="30" cy="13" r="7.5"/><path d="M26 14.5 Q30 18 34 14.5" stroke-width="2.4"/>
+        <path d="M30 22 V44 M30 27 L19 38 M30 27 L41 38 M30 44 L22 64 M30 44 L38 64"/>
+      </g>
+      <g class="fig-state fs-neutre">
+        <circle cx="30" cy="13" r="7.5"/><path d="M26.5 15.5 H33.5" stroke-width="2.4"/>
+        <path d="M30 22 V44 M30 27 L21 44 M30 27 L39 44 M30 44 L24 64 M30 44 L36 64"/>
+      </g>
+      <g class="fig-state fs-tendue">
+        <circle cx="30" cy="13" r="7.5"/><path d="M26 16 L28.5 14.5 L31 16 L33.5 14.5" stroke-width="2.2"/>
+        <path d="M30 22 V44 M30 27 L18 21 L16 13 M30 27 L42 21 L44 13 M30 44 L21 64 M30 44 L39 64"/>
+        <circle cx="16" cy="11" r="3.1" fill="currentColor" stroke="none"/><circle cx="44" cy="11" r="3.1" fill="currentColor" stroke="none"/>
+      </g>
+      <g class="fig-state fs-agitee">
+        <circle cx="30" cy="13" r="7.5"/><circle cx="30" cy="15.5" r="1.9" fill="currentColor" stroke="none"/>
+        <g transform="rotate(-6 30 42)"><path d="M30 22 V44 M30 27 L13 30 M30 27 L47 24 M30 44 L20 63 M30 44 L41 60"/></g>
+        <path d="M7 24 q-4 10 0 20 M53 18 q4 10 0 20" stroke-width="2.2" opacity=".65"/>
+      </g>
+      <g class="fig-state fs-figee">
+        <circle cx="30" cy="13" r="7.5"/><path d="M26.5 15.5 H33.5" stroke-width="2.4"/>
+        <path d="M30 22 V44 M30 27 L26 45 M30 27 L34 45 M30 44 L27 64 M30 44 L33 64"/>
+      </g>
+    </svg>
+    <div class="figcap" id="figcap">EN ATTENTE</div>
+  </div>
+
+  <div class="recpill" id="recpill"><span class="dot"></span>REC <span id="recTime">00:00</span></div>
   <div class="hint" id="hint">Place ton visage dans le cadre</div>
 
   <div class="bottombar" id="bottombar">
-    <div class="honest">Indice de tension mesuré sur le mouvement (tête, figement, répétition) — jamais un verdict de mensonge. ≈ 70–75 % en laboratoire, confiance affichée. Ton image reste sur ton appareil : rien n'est envoyé ni enregistré.</div>
-    <button class="stopbtn" id="stopBtn" type="button">Arrêter l'aperçu</button>
+    <div class="honest">Session enregistrée sur ton appareil (vidéo + données). Indice de tension mesuré — clignements, regard, tension faciale, mouvement — jamais un verdict de mensonge. ≈ 70–75 % en laboratoire, confiance affichée.</div>
+    <button class="stopbtn" id="stopBtn" type="button">Terminer et passer au test</button>
   </div>
 
   <div class="start" id="start">
+    <div class="brandmark"><img src="assets/ursly-wordmark.svg" alt="Ursly"></div>
     <div class="card">
       <div class="kicker">URSLY · TEMPS RÉEL</div>
       <h1>L'aperçu, en plein écran.</h1>
-      <p>Ta caméra, avec par-dessus le même UI d'analyse que la vidéo : suivi de la tête, indice de tension mesuré, confiance affichée. Ton image reste sur ton appareil.</p>
+      <p>Ta caméra, avec par-dessus le même UI d'analyse que la vidéo. Les signaux sont réellement mesurés — clignements, regard, tension faciale, mouvement — et l'indice se calibre sur TA baseline dans les premières secondes. La session est enregistrée sur ton appareil ; à la fin, un court test recueille tes retours pour entraîner le moteur.</p>
       <button class="go" id="goBtn" type="button">Ouvrir ma caméra</button>
       <div class="err" id="err"></div>
       <br><a class="back" href="index.html">← Retour à la vidéo</a>
+    </div>
+  </div>
+
+  <div class="test" id="testScreen">
+    <video id="replay" playsinline controls></video>
+    <div class="veil"></div>
+    <div class="brandmark"><img src="assets/ursly-wordmark.svg" alt="Ursly"></div>
+    <div class="sheet" id="sheet">
+      <div class="sumrow" id="sumrow"></div>
+      <div id="steps"></div>
     </div>
   </div>
 </main>
 
 <script type="module">
   // --- Moteur de fusion (même sémantique que le moteur du produit) : entrées 0..1 par signal.
-  // Ici, seuls les signaux MESURABLES dans le navigateur sont alimentés (mouvement de la
-  // boîte faciale) ; les autres restent null et la confiance baisse en conséquence.
+  // v3 : les six canaux sont MESURÉS (landmarks 478 points + blendshapes MediaPipe, modèle
+  // open source auto-hébergé dans assets/mediapipe/ — aucun appel tiers, tout reste local).
   const WEIGHTS = { blink:0.18, gaze:0.16, head:0.14, repetition:0.18, tension:0.20, freeze:0.14 };
+  const ENGINE_VERSION = "live-v3-landmarker";
   function fuse(s, conf) {
     let v = 0, w = 0;
     for (const k in WEIGHTS) if (s[k] != null) { v += s[k] * WEIGHTS[k]; w += WEIGHTS[k]; }
     if (!w) return null;
-    const idx = Math.round(5 + (v / w) * 90);           // borné 5..95, jamais 0/100
-    return { index: idx, confidence: Math.round(conf * 100) };
+    return { index: Math.round(5 + (v / w) * 90), confidence: Math.round(conf * 100) };
   }
-  // --- Porte qualité : on ne score pas un flux trop faible.
   function gate(faceHpx) {
     if (faceHpx < 90)  return { tier:"insufficient", score:false };
     if (faceHpx < 150) return { tier:"basic",        score:true  };
     if (faceHpx < 260) return { tier:"good",         score:true  };
     return { tier:"excellent", score:true };
   }
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const fmtT = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
 
   const $ = (id) => document.getElementById(id);
   const cam = $("cam"), hud = $("hud"), track = $("track"), hint = $("hint");
@@ -220,24 +275,31 @@
   for (const bar of [$("barTension"), $("barCoherence")]) for (let i = 0; i < SEG; i++) bar.appendChild(document.createElement("i"));
   function setBar(bar, pct) { const on = pct == null ? 0 : Math.round(pct / 100 * SEG); [...bar.children].forEach((s, i) => s.className = i < on ? "on" : ""); }
 
-  let detector = null, stream = null, running = false, raf = 0, tickTimer = 0;
-  let box = null;                 // boîte lissée {x,y,w,h} en coordonnées vidéo relatives
-  let keypts = null;              // points MediaPipe relatifs
-  let baseW = null;               // largeur de référence (baseline personnelle, 2 premières secondes)
-  let baseSamples = [];
-  let trackHist = [];             // {t, cx, cy, w} pour les signaux de mouvement
-  let indexHist = [];             // {t, v} pour tendance + cohérence d'affichage
-  let t0 = 0, lastDetect = 0, noFaceSince = 0;
-  let rppgBuf = [];               // {t, g} moyenne du vert sur le front
-  let rppgBpm = null, rppgLastTry = 0;
+  let landmarker = null, detector = null, stream = null, running = false, raf = 0, tickTimer = 0;
+  let box = null, pts = null, lastDetect = 0, noFaceSince = 0, lastFrameT = 0;
+  let trackHist = [], indexHist = [];
+  let faceMs = 0, baseline = null, calib = { au: [], widths: [], gaze: [] }, baselineFlashUntil = 0;
+  let blinkEvents = [], blinkWas = false, lastBlinkT = 0;
+  let gazeBuf = [], auBuf = [];
+  let session = null, recorder = null, recChunks = [], recMime = "";
+  let rppgBuf = [], rppgBpm = null, rppgLastTry = 0;
   const roi = document.createElement("canvas"); roi.width = 48; roi.height = 32;
+  let t0 = 0, lastSamplePush = 0;
 
-  async function loadDetector() {
-    const { FaceDetector, FilesetResolver } = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
-    const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-    const opts = (delegate) => ({ baseOptions: { modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
-    try { return await FaceDetector.createFromOptions(vision, opts("GPU")); }
-    catch (e) { return await FaceDetector.createFromOptions(vision, opts("CPU")); }
+  async function loadVision() {
+    const mod = await import("./assets/mediapipe/vision_bundle.mjs");
+    const vision = await mod.FilesetResolver.forVisionTasks("assets/mediapipe/wasm");
+    const mk = (delegate) => mod.FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: "assets/mediapipe/face_landmarker.task", delegate },
+      runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true,
+      minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
+    try { landmarker = await mk("GPU"); }
+    catch (e) { try { landmarker = await mk("CPU"); } catch (e2) { landmarker = null; } }
+    if (!landmarker) {  // repli : le détecteur simple (signaux mouvement seulement)
+      const opts = (delegate) => ({ baseOptions: { modelAssetPath: "assets/mediapipe/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
+      try { detector = await mod.FaceDetector.createFromOptions(vision, opts("GPU")); }
+      catch (e) { detector = await mod.FaceDetector.createFromOptions(vision, opts("CPU")); }
+    }
   }
 
   function showError(msg) { const e = $("err"); e.textContent = msg; e.style.display = "block"; }
@@ -258,75 +320,156 @@
   $("goBtn").onclick = async () => {
     const btn = $("goBtn"); btn.disabled = true; btn.textContent = "Démarrage…";
     try {
-      if (!detector) detector = await loadDetector();
+      if (!landmarker && !detector) await loadVision();
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
     } catch (e) {
       btn.disabled = false; btn.textContent = "Ouvrir ma caméra";
-      if (e && (e.name || "").startsWith("Not")) camError(e);
-      else if (e && e.name === "NotReadableError") camError(e);
-      else showError("Le suivi de visage n'a pas pu démarrer (connexion requise pour le modèle). Vérifie ta connexion, puis retouche le bouton.");
+      if (e && /Not|Readable/.test(e.name || "")) camError(e);
+      else showError("Le suivi de visage n'a pas pu démarrer. Vérifie ta connexion, puis retouche le bouton.");
       return;
     }
     cam.srcObject = stream;
     await cam.play().catch(() => {});
-    cam.style.display = "block"; hud.style.display = "block"; $("figchip").style.display = "block"; $("bottombar").style.display = "flex";
+    cam.style.display = "block"; hud.style.display = "block"; $("figchip").style.display = "block";
+    $("bottombar").style.display = "flex"; $("recpill").style.display = "block";
     $("start").style.display = "none";
-    box = null; baseW = null; baseSamples = []; trackHist = []; indexHist = []; rppgBuf = []; rppgBpm = null;
-    t0 = performance.now(); noFaceSince = 0; running = true;
+    box = null; pts = null; trackHist = []; indexHist = []; blinkEvents = []; gazeBuf = []; auBuf = [];
+    faceMs = 0; baseline = null; calib = { au: [], widths: [], gaze: [] }; rppgBuf = []; rppgBpm = null;
+    session = { engine: ENGINE_VERSION, weights: WEIGHTS, startedAt: new Date().toISOString(), samples: [], ticks: [], baseline: null, feedback: null };
+    t0 = performance.now(); noFaceSince = 0; lastFrameT = 0; running = true;
+    startRecording();
     raf = requestAnimationFrame(loop);
     tickTimer = setInterval(tick, 500);
   };
 
+  function startRecording() {
+    recChunks = []; recMime = "";
+    try {
+      if (!window.MediaRecorder) return;
+      const mt = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm", "video/mp4"].find((t) => MediaRecorder.isTypeSupported(t));
+      if (!mt) return;
+      recMime = mt;
+      recorder = new MediaRecorder(stream, { mimeType: mt, videoBitsPerSecond: 2500000 });
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+      recorder.start(1000);
+    } catch (e) { recorder = null; }
+  }
+
   $("stopBtn").onclick = () => {
     running = false; cancelAnimationFrame(raf); clearInterval(tickTimer);
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    stream = null; cam.srcObject = null; cam.style.display = "none";
-    hud.style.display = "none"; track.style.display = "none"; hint.style.display = "none"; $("figchip").style.display = "none";
-    $("bottombar").style.display = "none"; $("start").style.display = "flex";
-    const btn = $("goBtn"); btn.disabled = false; btn.textContent = "Ouvrir ma caméra";
+    if (recorder && recorder.state !== "inactive") { recorder.onstop = finishSession; try { recorder.stop(); } catch (e) { finishSession(); } }
+    else finishSession();
   };
 
+  function finishSession() {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    stream = null; cam.srcObject = null; cam.style.display = "none";
+    hud.style.display = "none"; track.style.display = "none"; hint.style.display = "none";
+    $("figchip").style.display = "none"; $("bottombar").style.display = "none"; $("recpill").style.display = "none";
+    const blob = recChunks.length ? new Blob(recChunks, { type: recMime || "video/webm" }) : null;
+    buildTest(blob);
+    $("testScreen").style.display = "block";
+  }
+
+  // ---------- Boucle d'analyse ----------
   function loop(now) {
     if (!running) return;
     raf = requestAnimationFrame(loop);
     if (cam.readyState < 2 || now - lastDetect < 34) return;
     lastDetect = now;
-    let res = null;
-    try { res = detector.detectForVideo(cam, now); } catch (e) { /* image pas prête */ }
-    const det = res && res.detections && res.detections[0];
+    const dt = lastFrameT ? Math.min(100, now - lastFrameT) : 34; lastFrameT = now;
     const stageW = cam.clientWidth, stageH = cam.clientHeight;
-    // object-fit:cover → recadrer les coordonnées relatives dans l'espace affiché
     const vw = cam.videoWidth || 1, vh = cam.videoHeight || 1;
     const scale = Math.max(stageW / vw, stageH / vh);
     const offX = (stageW - vw * scale) / 2, offY = (stageH - vh * scale) / 2;
-    const toDisp = (rx, ry) => ({ x: stageW - (rx * vw * scale + offX), y: ry * vh * scale + offY }); // x miroir (aperçu selfie)
-    if (det) {
-      noFaceSince = 0;
-      const b = det.boundingBox;
-      const tl = toDisp((b.originX + b.width) / vw, b.originY / vh);
-      const disp = { x: tl.x, y: tl.y, w: b.width * scale, h: b.height * scale };
-      if (!box) box = disp;
-      else for (const k of ["x", "y", "w", "h"]) box[k] += (disp[k] - box[k]) * 0.45;
-      const KP_NAMES = ["right_eye", "left_eye", "nose_tip", "mouth_center", "right_ear_tragion", "left_ear_tragion"];
-      keypts = (det.keypoints || []).map((p, i) => { const d = toDisp(p.x, p.y); return { x: d.x - box.x, y: d.y - box.y, name: p.name || KP_NAMES[i] }; });
-      // baseline personnelle : médiane des largeurs des ~2 premières secondes
-      if (baseW == null) { baseSamples.push(box.w); if (baseSamples.length >= 24) { baseSamples.sort((a, c) => a - c); baseW = baseSamples[Math.floor(baseSamples.length / 2)]; } }
-      trackHist.push({ t: now, cx: box.x + box.w / 2, cy: box.y + box.h / 2, w: box.w });
-      if (trackHist.length > 240) trackHist.shift();
-      // rPPG : moyenne du canal vert sur le front (bande haute-centre du visage)
-      try {
-        const c = roi.getContext("2d");
-        c.drawImage(cam, b.originX + b.width * 0.30, b.originY + b.height * 0.06, b.width * 0.40, b.height * 0.22, 0, 0, 48, 32);
-        const d = c.getImageData(0, 0, 48, 32).data; let g = 0;
-        for (let i = 1; i < d.length; i += 4) g += d[i];
-        rppgBuf.push({ t: now, g: g / (d.length / 4) });
-        if (rppgBuf.length > 300) rppgBuf.shift();
-      } catch (e) { /* ROI hors cadre */ }
-      drawTrack();
-    } else {
-      if (!noFaceSince) noFaceSince = now;
-      track.style.display = "none";
+    const toDisp = (rx, ry) => ({ x: stageW - (rx * vw * scale + offX), y: ry * vh * scale + offY });
+    let sample = null;
+    try { sample = landmarker ? sampleLandmarker(now) : sampleDetector(now); } catch (e) { /* image pas prête */ }
+    if (!sample) { if (!noFaceSince) noFaceSince = now; track.style.display = "none"; return; }
+    noFaceSince = 0; faceMs += dt;
+    const { rawBox, dispBox, points, bs } = sample;
+    if (!box) box = dispBox; else for (const k of ["x", "y", "w", "h"]) box[k] += (dispBox[k] - box[k]) * 0.45;
+    pts = points;
+    trackHist.push({ t: now, cx: box.x + box.w / 2, cy: box.y + box.h / 2, w: box.w });
+    if (trackHist.length > 240) trackHist.shift();
+    // Signaux faciaux réels (blendshapes)
+    let bsArr = null;
+    if (bs) {
+      const blinkAvg = ((bs.eyeBlinkLeft || 0) + (bs.eyeBlinkRight || 0)) / 2;
+      const isBlink = blinkAvg > 0.55;
+      if (isBlink && !blinkWas && now - lastBlinkT > 130) { blinkEvents.push(now); lastBlinkT = now; }
+      blinkWas = isBlink;
+      const gx = ((bs.eyeLookOutLeft || 0) + (bs.eyeLookInRight || 0) - (bs.eyeLookInLeft || 0) - (bs.eyeLookOutRight || 0)) / 2;
+      const gy = ((bs.eyeLookUpLeft || 0) + (bs.eyeLookUpRight || 0) - (bs.eyeLookDownLeft || 0) - (bs.eyeLookDownRight || 0)) / 2;
+      gazeBuf.push({ t: now, gx, gy }); if (gazeBuf.length > 900) gazeBuf.shift();
+      const auKeys = ["browDownLeft", "browDownRight", "eyeSquintLeft", "eyeSquintRight", "noseSneerLeft", "noseSneerRight", "mouthPressLeft", "mouthPressRight"];
+      const present = auKeys.filter((k) => bs[k] != null);
+      const auRaw = present.length ? present.reduce((a, k) => a + bs[k], 0) / present.length : null;
+      if (auRaw != null && (!auBuf.length || now - auBuf[auBuf.length - 1].t >= 90)) { auBuf.push({ t: now, v: auRaw }); if (auBuf.length > 700) auBuf.shift(); }
+      bsArr = [blinkAvg, ((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2, ((bs.eyeSquintLeft || 0) + (bs.eyeSquintRight || 0)) / 2, ((bs.mouthPressLeft || 0) + (bs.mouthPressRight || 0)) / 2, gx, gy].map((x) => Math.round(x * 1000) / 1000);
+      if (!baseline) { if (auRaw != null) calib.au.push(auRaw); calib.gaze.push(Math.abs(gx) + Math.abs(gy)); }
     }
+    if (!baseline) calib.widths.push(rawBox.w);
+    if (baseline == null && faceMs >= 15000 && calib.widths.length > 60) {
+      const rate = blinkEvents.length / (faceMs / 60000);
+      baseline = { auRaw: median(calib.au), blinkRate: rate, widthRel: median(calib.widths), gazeMag: median(calib.gaze) };
+      if (session) session.baseline = baseline;
+      baselineFlashUntil = now + 2600;
+    }
+    // rPPG : canal vert sur le front (coordonnées brutes)
+    try {
+      const c = roi.getContext("2d");
+      c.drawImage(cam, rawBox.x * vw + rawBox.w * vw * 0.30, rawBox.y * vh + rawBox.h * vh * 0.04, rawBox.w * vw * 0.40, rawBox.h * vh * 0.20, 0, 0, 48, 32);
+      const d = c.getImageData(0, 0, 48, 32).data; let g = 0;
+      for (let i = 1; i < d.length; i += 4) g += d[i];
+      rppgBuf.push({ t: now, g: g / (d.length / 4) });
+      if (rppgBuf.length > 300) rppgBuf.shift();
+    } catch (e) { /* ROI hors cadre */ }
+    // Piste de données de la session (~10/s)
+    if (session && now - lastSamplePush >= 100) {
+      lastSamplePush = now;
+      session.samples.push({ t: Math.round(now - t0), b: [rawBox.x, rawBox.y, rawBox.w, rawBox.h].map((x) => Math.round(x * 1000) / 1000), bs: bsArr });
+    }
+    drawTrack();
+  }
+
+  function sampleLandmarker(now) {
+    const res = landmarker.detectForVideo(cam, now);
+    if (!res || !res.faceLandmarks || !res.faceLandmarks.length) return null;
+    const L = res.faceLandmarks[0];
+    let minX = 1, minY = 1, maxX = 0, maxY = 0;
+    for (const p of L) { if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; }
+    const rawBox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    const stageW = cam.clientWidth, stageH = cam.clientHeight, vw = cam.videoWidth || 1, vh = cam.videoHeight || 1;
+    const sc = Math.max(stageW / vw, stageH / vh), oX = (stageW - vw * sc) / 2, oY = (stageH - vh * sc) / 2;
+    const td = (rx, ry) => ({ x: stageW - (rx * vw * sc + oX), y: ry * vh * sc + oY });
+    const tl = td(maxX, minY);
+    const dispBox = { x: tl.x, y: tl.y, w: rawBox.w * sc, h: rawBox.h * sc };
+    const eyeC = (idxs) => { let x = 0, y = 0; for (const i of idxs) { x += L[i].x; y += L[i].y; } const d = td(x / idxs.length, y / idxs.length); return { x: d.x - dispBox.x, y: d.y - dispBox.y }; };
+    const P = (i) => { const d = td(L[i].x, L[i].y); return { x: d.x - dispBox.x, y: d.y - dispBox.y }; };
+    const eyeL = L[473] ? P(473) : eyeC([263, 362, 386, 374]);
+    const eyeR = L[468] ? P(468) : eyeC([33, 133, 159, 145]);
+    const mouth = { x: (P(13).x + P(14).x) / 2, y: (P(13).y + P(14).y) / 2 };
+    const points = { eyeL, eyeR, nose: P(1), mouth, earL: P(454), earR: P(234) };
+    let bs = null;
+    if (res.faceBlendshapes && res.faceBlendshapes[0]) { bs = {}; for (const c of res.faceBlendshapes[0].categories) bs[c.categoryName] = c.score; }
+    return { rawBox, dispBox, points, bs };
+  }
+
+  function sampleDetector(now) {
+    const res = detector.detectForVideo(cam, now);
+    if (!res || !res.detections || !res.detections.length) return null;
+    const det = res.detections[0], b = det.boundingBox;
+    const stageW = cam.clientWidth, stageH = cam.clientHeight, vw = cam.videoWidth || 1, vh = cam.videoHeight || 1;
+    const sc = Math.max(stageW / vw, stageH / vh), oX = (stageW - vw * sc) / 2, oY = (stageH - vh * sc) / 2;
+    const td = (rx, ry) => ({ x: stageW - (rx * vw * sc + oX), y: ry * vh * sc + oY });
+    const rawBox = { x: b.originX / vw, y: b.originY / vh, w: b.width / vw, h: b.height / vh };
+    const tl = td((b.originX + b.width) / vw, b.originY / vh);
+    const dispBox = { x: tl.x, y: tl.y, w: b.width * sc, h: b.height * sc };
+    const KP = ["right_eye", "left_eye", "nose_tip", "mouth_center", "right_ear_tragion", "left_ear_tragion"];
+    const kp = (det.keypoints || []).map((p, i) => ({ ...td(p.x, p.y), name: p.name || KP[i] }));
+    const f = (n) => { const p = kp.find((q) => q.name === n); return p ? { x: p.x - dispBox.x, y: p.y - dispBox.y } : null; };
+    return { rawBox, dispBox, points: { eyeL: f("left_eye"), eyeR: f("right_eye"), nose: f("nose_tip"), mouth: f("mouth_center"), earL: f("left_ear_tragion"), earR: f("right_ear_tragion") }, bs: null };
   }
 
   function drawTrack() {
@@ -334,10 +477,9 @@
     const x = box.x - padW, y = box.y - padTop, w = box.w + padW * 2, h = box.h + padTop + padBot;
     track.style.display = "block";
     track.style.left = x + "px"; track.style.top = y + "px"; track.style.width = w + "px"; track.style.height = h + "px";
-    $("trackTag").textContent = "SUIVI TÊTE · ×" + (baseW ? (box.w / baseW).toFixed(2) : "1.00");
-    const kp = (n) => keypts && keypts.find((p) => p.name === n);
-    const eL = kp("left_eye"), eR = kp("right_eye"), nose = kp("nose_tip"), mouth = kp("mouth_center");
-    const earL = kp("left_ear_tragion"), earR = kp("right_ear_tragion");
+    $("trackTag").textContent = "SUIVI TÊTE · ×" + (baseline ? (box.w / (baseline.widthRel * cam.videoWidth * Math.max(cam.clientWidth / cam.videoWidth, cam.clientHeight / cam.videoHeight))).toFixed(2) : "1.00");
+    const eL = pts && pts.eyeL, eR = pts && pts.eyeR, nose = pts && pts.nose, mouth = pts && pts.mouth;
+    const earL = pts && pts.earL, earR = pts && pts.earR;
     const eyeY = eL && eR ? (eL.y + eR.y) / 2 + padTop : h * 0.34;
     $("eyeline").style.top = eyeY + "px";
     const put = (id, p) => { const el = $(id); if (p) { el.setAttribute("cx", p.x + padW); el.setAttribute("cy", p.y + padTop); el.style.display = ""; } else el.style.display = "none"; };
@@ -345,7 +487,6 @@
     put("ptEyeL", eL); put("ptEyeR", eR); put("ptNose", nose); put("ptMouth", mouth);
     put("ringEyeL", eL); put("ringEyeR", eR); put("ptEarL", earL); put("ptEarR", earR);
     line("ln1", eL, nose); line("ln2", eR, nose); line("ln3", nose, mouth);
-    // Segmentation par sens : une étiquette par organe, posée sur l'organe.
     const lab = (id, p, dx, dy) => { const el = $(id); if (p && box.w >= 130) { el.style.left = (p.x + padW + dx) + "px"; el.style.top = (p.y + padTop + dy) + "px"; el.style.display = "block"; } else el.style.display = "none"; };
     lab("labVue", eL && eR ? { x: (eL.x + eR.x) / 2, y: Math.min(eL.y, eR.y) } : null, 0, -17);
     const ear = earL && earR ? (Math.abs(earL.x - box.w / 2) > Math.abs(earR.x - box.w / 2) ? earL : earR) : earL || earR;
@@ -360,13 +501,33 @@
     let path = 0;
     for (let i = 1; i < win.length; i++) path += Math.hypot(win[i].cx - win[i - 1].cx, win[i].cy - win[i - 1].cy) + Math.abs(win[i].w - win[i - 1].w) * 0.6;
     const motion = Math.min(1, (path / (win.length - 1)) / (box.w * 0.055));
-    // répétition : allers-retours de la position horizontale sur ~4 s
     const win4 = trackHist.filter((p) => now - p.t <= 4000);
     let reversals = 0, prevDir = 0;
     for (let i = 1; i < win4.length; i++) { const d = win4[i].cx - win4[i - 1].cx; if (Math.abs(d) > 0.6) { const dir = Math.sign(d); if (prevDir && dir !== prevDir) reversals++; prevDir = dir; } }
-    const repetition = Math.min(1, reversals / 9);
-    const freeze = Math.max(0, 1 - motion * 3.2);
-    return { blink: null, gaze: null, head: motion, repetition, tension: null, freeze };
+    return { head: motion, repetition: Math.min(1, reversals / 9), freeze: Math.max(0, 1 - motion * 3.2) };
+  }
+
+  function facialSignals(now) {
+    const out = { blink: null, gaze: null, tension: null };
+    if (!auBuf.length && !gazeBuf.length) return out;
+    const auWin = auBuf.filter((p) => now - p.t <= 4000);
+    if (auWin.length >= 4) {
+      const rawMean = auWin.reduce((a, p) => a + p.v, 0) / auWin.length;
+      const mapped = clamp01(rawMean * 1.7);
+      out.tension = baseline ? clamp01(0.25 + (mapped - clamp01(baseline.auRaw * 1.7)) * 1.35) : clamp01(mapped * 1.55);
+    }
+    const gWin = gazeBuf.filter((p) => now - p.t <= 4000);
+    if (gWin.length >= 20) {
+      const away = gWin.filter((p) => Math.abs(p.gx) > 0.5 || Math.abs(p.gy) > 0.5).length / gWin.length;
+      const mx = gWin.reduce((a, p) => a + p.gx, 0) / gWin.length, my = gWin.reduce((a, p) => a + p.gy, 0) / gWin.length;
+      const std = Math.sqrt(gWin.reduce((a, p) => a + (p.gx - mx) ** 2 + (p.gy - my) ** 2, 0) / gWin.length);
+      out.gaze = clamp01(away * 1.5 + std * 0.9);
+    }
+    if (baseline && faceMs > 20000) {
+      const ev = blinkEvents.filter((t) => now - t <= 30000).length * 2;
+      out.blink = clamp01(Math.abs(ev - baseline.blinkRate) / 14);
+    }
+    return out;
   }
 
   function estimateRppg(now) {
@@ -383,7 +544,6 @@
       const p = re * re + im * im;
       if (!best || p > best.p) best = { p, f };
     }
-    // bruit de fond spectral : puissance médiane approximée par la moyenne hors pic
     let sum = 0, cnt = 0;
     for (let f = 0.7; f <= 3.0; f += 0.23) { if (Math.abs(f - best.f) < 0.15) continue; let re = 0, im = 0; for (let i = 0; i < n; i++) { const t = (data[i].t - t0s) / 1000; const v = data[i].g - mean; const a = 2 * Math.PI * f * t; re += v * Math.cos(a); im -= v * Math.sin(a); } sum += re * re + im * im; cnt++; }
     const snr = best.p / Math.max(1e-9, sum / cnt);
@@ -391,9 +551,9 @@
   }
 
   const FIGKEY = { "CALME": "calme", "NEUTRE": "neutre", "TENDUE": "tendue", "AGITÉE": "agitee", "FIGÉE": "figee" };
-  function setFigure(state, index) {
+  function setFigure(state, index, capOverride) {
     const chip = $("figchip");
-    if (state == null) { chip.dataset.state = "attente"; chip.style.color = ""; $("figcap").textContent = "EN ATTENTE"; return; }
+    if (state == null) { chip.dataset.state = "attente"; chip.style.color = ""; $("figcap").textContent = capOverride || "EN ATTENTE"; return; }
     chip.dataset.state = FIGKEY[state];
     chip.style.color = state === "TENDUE" && index >= 75 ? "#ff5d5d" : "";
     $("figcap").textContent = state;
@@ -403,47 +563,169 @@
     if (!running) return;
     const now = performance.now();
     $("clock").textContent = "T+" + ((now - t0) / 1000).toFixed(2) + "s";
+    $("recTime").textContent = fmtT((now - t0) / 1000);
     const tensionEl = $("tension"), cohEl = $("coherence"), emoEl = $("emotion"), confEl = $("confidence");
     const faceAge = trackHist.length ? now - trackHist[trackHist.length - 1].t : Infinity;
-    if (!box || faceAge > 700) {
-      tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "AUCUN VISAGE";
+    const reset = (emo, hintMsg) => {
+      tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = emo;
       setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
-      hint.textContent = "Place ton visage dans le cadre"; hint.style.display = "block";
-      setFigure(null);
-      return;
-    }
+      hint.textContent = hintMsg; hint.style.display = "block"; setFigure(null);
+    };
+    if (!box || faceAge > 700) { reset("AUCUN VISAGE", "Place ton visage dans le cadre"); return; }
     const g = gate(box.h);
-    if (!g.score) {
-      tensionEl.textContent = "—"; cohEl.textContent = "—"; confEl.textContent = "—"; emoEl.textContent = "TROP LOIN";
-      setBar($("barTension"), null); setBar($("barCoherence"), null); $("trend").textContent = "";
-      hint.textContent = "Rapproche-toi de la caméra"; hint.style.display = "block";
-      setFigure(null);
-      return;
-    }
-    hint.style.display = "none";
-    const s = motionSignals(now);
-    if (!s) { emoEl.textContent = "CALIBRATION…"; setFigure(null); return; }
+    if (!g.score) { reset("TROP LOIN", "Rapproche-toi de la caméra"); return; }
+    const m = motionSignals(now);
+    if (!m) { emoEl.textContent = "CALIBRATION…"; setFigure(null, 0, "CALIBRATION"); hint.textContent = "Calibration — reste naturel, je prends ta baseline"; hint.style.display = "block"; return; }
+    const f = facialSignals(now);
+    const s = { blink: f.blink, gaze: f.gaze, head: m.head, repetition: m.repetition, tension: f.tension, freeze: m.freeze };
     const coverage = Object.values(s).filter((v) => v != null).length / 6;
-    const conf = (0.45 + 0.5 * coverage) * (g.tier === "excellent" ? 1 : g.tier === "good" ? 0.92 : 0.8);
-    const r = fuse(s, conf);
+    const maturity = 0.75 + 0.25 * Math.min(1, faceMs / 90000);
+    let conf = (0.40 + 0.55 * coverage) * (g.tier === "excellent" ? 1 : g.tier === "good" ? 0.92 : 0.8) * maturity;
+    if (!baseline) conf *= 0.6;
+    const r = fuse(s, Math.min(0.97, conf));
     if (!r) return;
-    tensionEl.innerHTML = (r.index).toFixed(0) + "<small>%</small>";
-    const agit = 1 - s.freeze;
-    const coh = Math.max(0, Math.min(100, 100 * (1 - (Math.abs(s.head - s.repetition) + Math.abs(s.head - agit) + Math.abs(s.repetition - agit)) / 3)));
+    tensionEl.innerHTML = r.index + "<small>%</small>";
+    const agitVals = [s.head, s.repetition, 1 - s.freeze, s.tension, s.blink, s.gaze].filter((v) => v != null);
+    let coh = 100;
+    if (agitVals.length >= 2) { let d = 0, c = 0; for (let i = 0; i < agitVals.length; i++) for (let j = i + 1; j < agitVals.length; j++) { d += Math.abs(agitVals[i] - agitVals[j]); c++; } coh = Math.max(0, Math.min(100, 100 * (1 - d / c))); }
     cohEl.textContent = coh.toFixed(1) + "%";
     setBar($("barTension"), r.index); setBar($("barCoherence"), coh);
     indexHist.push({ t: now, v: r.index }); indexHist = indexHist.filter((p) => now - p.t <= 4000);
     const past = indexHist.filter((p) => now - p.t >= 2500);
     if (past.length) { const avg = past.reduce((a, p) => a + p.v, 0) / past.length; $("trend").textContent = r.index > avg + 2 ? "▲" : r.index < avg - 2 ? "▼" : ""; }
-    const state = s.freeze > 0.72 && r.index >= 45 ? "FIGÉE"
-      : s.head > 0.55 ? "AGITÉE"
-      : r.index >= 55 ? "TENDUE"
-      : s.freeze > 0.6 ? "CALME" : "NEUTRE";
+    let state;
+    if (!baseline) state = "CALIBRATION";
+    else if (s.freeze > 0.72 && r.index >= 45) state = "FIGÉE";
+    else if (s.head > 0.55) state = "AGITÉE";
+    else if (r.index >= 55 || (s.tension != null && s.tension >= 0.62)) state = "TENDUE";
+    else if (s.freeze > 0.55 && (s.tension == null || s.tension < 0.42)) state = "CALME";
+    else state = "NEUTRE";
     emoEl.textContent = state;
-    setFigure(state, r.index);
+    if (!baseline) setFigure(null, 0, "CALIBRATION"); else setFigure(state, r.index);
     confEl.textContent = r.confidence + "%";
     estimateRppg(now);
     $("rppg").textContent = rppgBpm ? "rPPG " + rppgBpm + " BPM" : "rPPG — BPM";
+    if (!baseline) { hint.textContent = "Calibration — reste naturel, je prends ta baseline · " + Math.max(0, Math.ceil((15000 - faceMs) / 1000)) + " s"; hint.style.display = "block"; }
+    else if (now < baselineFlashUntil) { hint.textContent = "Baseline prise — l'indice est maintenant personnalisé"; hint.style.display = "block"; }
+    else hint.style.display = "none";
+    if (session) session.ticks.push({ t: Math.round((now - t0) / 100) / 10, index: r.index, conf: r.confidence, state, signals: { blink: s.blink, gaze: s.gaze, head: Math.round(s.head * 100) / 100, repetition: Math.round(s.repetition * 100) / 100, tension: s.tension == null ? null : Math.round(s.tension * 100) / 100, freeze: Math.round(s.freeze * 100) / 100 }, rppg: rppgBpm });
+  }
+
+  // ---------- Le test : on rejoue la session, on ramasse les retours ----------
+  const FIG_PATHS = {
+    calme:  { body: '<path d="M30 22 V44 M30 27 L19 38 M30 27 L41 38 M30 44 L22 64 M30 44 L38 64"/>', mouth: '<path d="M26 14.5 Q30 18 34 14.5" stroke-width="2.4"/>', color: "#5eeaaa" },
+    neutre: { body: '<path d="M30 22 V44 M30 27 L21 44 M30 27 L39 44 M30 44 L24 64 M30 44 L36 64"/>', mouth: '<path d="M26.5 15.5 H33.5" stroke-width="2.4"/>', color: "#8fb0c9" },
+    tendue: { body: '<path d="M30 22 V44 M30 27 L18 21 L16 13 M30 27 L42 21 L44 13 M30 44 L21 64 M30 44 L39 64"/><circle cx="16" cy="11" r="3.1" fill="currentColor" stroke="none"/><circle cx="44" cy="11" r="3.1" fill="currentColor" stroke="none"/>', mouth: '<path d="M26 16 L28.5 14.5 L31 16 L33.5 14.5" stroke-width="2.2"/>', color: "#ffb703" },
+    agitee: { body: '<g transform="rotate(-6 30 42)"><path d="M30 22 V44 M30 27 L13 30 M30 27 L47 24 M30 44 L20 63 M30 44 L41 60"/></g>', mouth: '<circle cx="30" cy="15.5" r="1.9" fill="currentColor" stroke="none"/>', color: "#ffb703" },
+    figee:  { body: '<path d="M30 22 V44 M30 27 L26 45 M30 27 L34 45 M30 44 L27 64 M30 44 L33 64"/>', mouth: '<path d="M26.5 15.5 H33.5" stroke-width="2.4"/>', color: "#a0e6ff" }
+  };
+  const STATE_LIST = [["calme", "CALME"], ["neutre", "NEUTRE"], ["tendue", "TENDUE"], ["agitee", "AGITÉE"], ["figee", "FIGÉE"]];
+  const figSVG = (key, size) => { const f = FIG_PATHS[key]; return '<svg width="' + size + '" height="' + Math.round(size * 74 / 60) + '" viewBox="0 0 60 74" fill="none" stroke="' + f.color + '" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="30" cy="13" r="7.5"/>' + f.mouth + '<g stroke="' + f.color + '">' + f.body + "</g></svg>"; };
+  let videoBlob = null;
+
+  function buildTest(blob) {
+    videoBlob = blob;
+    const replay = $("replay");
+    if (blob) { replay.src = URL.createObjectURL(blob); replay.style.display = "block"; }
+    else replay.style.display = "none";
+    const ticks = (session ? session.ticks : []).filter((t) => t.state !== "CALIBRATION");
+    const dur = session && session.ticks.length ? session.ticks[session.ticks.length - 1].t : 0;
+    const avg = ticks.length ? Math.round(ticks.reduce((a, t) => a + t.index, 0) / ticks.length) : null;
+    const peak = ticks.length ? ticks.reduce((a, t) => t.index > a.index ? t : a, ticks[0]) : null;
+    const avgConf = ticks.length ? Math.round(ticks.reduce((a, t) => a + t.conf, 0) / ticks.length) : null;
+    const counts = {};
+    for (const t of ticks) counts[t.state] = (counts[t.state] || 0) + 1;
+    const dominant = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0] || null;
+    $("sumrow").innerHTML =
+      '<span class="sum">Durée <b>' + fmtT(dur) + '</b></span>' +
+      (avg != null ? '<span class="sum">Indice moyen <b>' + avg + ' %</b></span>' : "") +
+      (peak ? '<span class="sum">Pic <b>' + peak.index + ' % à ' + fmtT(peak.t) + '</b></span>' : "") +
+      (dominant ? '<span class="sum">État dominant <b>' + dominant + '</b></span>' : "") +
+      (avgConf != null ? '<span class="sum">Confiance moyenne <b>' + avgConf + ' %</b></span>' : "");
+    // Moments à juger : pic, creux, plus grand changement — espacés d'au moins 8 s.
+    const moments = [];
+    if (ticks.length >= 6) {
+      const cand = [];
+      cand.push({ kind: "Pic de tension", tick: peak });
+      cand.push({ kind: "Moment le plus calme", tick: ticks.reduce((a, t) => t.index < a.index ? t : a, ticks[0]) });
+      let bestD = null, bestV = -1;
+      for (let i = 2; i < ticks.length; i++) { const d = Math.abs(ticks[i].index - ticks[i - 2].index); if (d > bestV) { bestV = d; bestD = ticks[i]; } }
+      if (bestD) cand.push({ kind: "Changement d'état", tick: bestD });
+      for (const c of cand) { if (c.tick && moments.every((m) => Math.abs(m.tick.t - c.tick.t) >= 8)) moments.push(c); }
+      moments.sort((a, b) => a.tick.t - b.tick.t);
+    }
+    const feedback = { global: null, moments: moments.map((m) => ({ tS: m.tick.t, kind: m.kind, readState: m.tick.state, readIndex: m.tick.index, verdict: null, rather: null })), comment: "" };
+    if (session) session.feedback = feedback;
+    const stepsBox = $("steps");
+    stepsBox.innerHTML = "";
+    const totalSteps = 2 + moments.length + 1;
+    let stepIdx = 0;
+    const mkStep = (html) => { const d = document.createElement("div"); d.className = "tstep"; d.innerHTML = '<div class="prog">ÉTAPE ' + (++stepIdx) + ' / ' + totalSteps + '</div>' + html; stepsBox.appendChild(d); return d; };
+    const optBtns = (onPick) => {
+      const row = document.createElement("div"); row.className = "optrow";
+      for (const [key, label] of STATE_LIST) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "opt";
+        b.innerHTML = figSVG(key, 20) + "<span>" + label + "</span>";
+        b.onclick = () => { row.querySelectorAll(".opt").forEach((x) => x.classList.remove("sel")); b.classList.add("sel"); onPick(label); };
+        row.appendChild(b);
+      }
+      return row;
+    };
+    const steps = [];
+    // Étape 1 : l'état global ressenti
+    const s1 = mkStep('<div class="q">Pendant la session, globalement, tu te sentais comment ?<small>C’est ta vérité qui entraîne le moteur — pas de mauvaise réponse.</small></div>');
+    s1.appendChild(optBtns((label) => { feedback.global = label; setTimeout(() => go(1), 220); }));
+    steps.push(s1);
+    // Étapes moments
+    moments.forEach((m, i) => {
+      const fb = feedback.moments[i];
+      const d = mkStep('<div class="q">' + m.kind + ' — à ' + fmtT(m.tick.t) + ', je lisais : ' + m.tick.state + ' · indice ' + m.tick.index + ' %<small>Est-ce que ça correspond à ce que tu vivais à ce moment-là ?</small></div>');
+      const seek = document.createElement("button"); seek.type = "button"; seek.className = "seekbtn"; seek.textContent = "▶ Revoir ce moment";
+      seek.onclick = () => { if (videoBlob) { replay.currentTime = Math.max(0, m.tick.t - 1); replay.play().catch(() => {}); } };
+      d.appendChild(seek);
+      const vrow = document.createElement("div"); vrow.className = "optrow";
+      const rather = document.createElement("div"); rather.className = "ratherrow";
+      rather.innerHTML = '<div class="rlab">C’était plutôt :</div>';
+      rather.appendChild(optBtns((label) => { fb.rather = label; setTimeout(() => go(steps.indexOf(d) + 1), 220); }));
+      for (const v of ["Vrai", "Partiellement", "Faux"]) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "vbtn"; b.textContent = v;
+        b.onclick = () => { vrow.querySelectorAll(".vbtn").forEach((x) => x.classList.remove("sel")); b.classList.add("sel"); fb.verdict = v.toLowerCase();
+          if (v === "Vrai") setTimeout(() => go(steps.indexOf(d) + 1), 220); else rather.classList.add("on"); };
+        vrow.appendChild(b);
+      }
+      d.appendChild(vrow); d.appendChild(rather);
+      steps.push(d);
+    });
+    // Étape commentaire
+    const sc = mkStep('<div class="q">Un commentaire pour le moteur ?<small>Optionnel — ce qui t’a paru juste, faux, ou manquant.</small></div>');
+    const ta = document.createElement("textarea"); ta.placeholder = "Écris ici…"; sc.appendChild(ta);
+    const done = document.createElement("button"); done.type = "button"; done.className = "bigbtn"; done.textContent = "Terminer";
+    done.onclick = () => { feedback.comment = ta.value.trim(); go(steps.length - 1); fillDone(dominant); };
+    sc.appendChild(done);
+    steps.push(sc);
+    // Étape finale
+    const sd = mkStep('<div class="q">Merci — tes retours sont la vérité du moteur.</div><div id="doneBody"></div>');
+    steps.push(sd);
+    function go(n) { steps.forEach((s, i) => s.classList.toggle("on", i === n)); $("sheet").scrollTop = 0; }
+    function fillDone(dom) {
+      const judged = feedback.moments.filter((m) => m.verdict);
+      const confirmed = judged.filter((m) => m.verdict === "vrai").length;
+      const globalOk = feedback.global && dom ? (feedback.global === dom) : null;
+      let html = '<div class="sumrow">' +
+        (judged.length ? '<span class="sum">Moments confirmés <b>' + confirmed + ' / ' + judged.length + '</b></span>' : "") +
+        (globalOk != null ? '<span class="sum">État global <b>' + (globalOk ? "confirmé" : "différent — tu as dit " + feedback.global) + '</b></span>' : "") + "</div>";
+      html += '<p class="note">La session (vidéo + données + tes retours) est sur ton appareil seulement. Envoie-moi le fichier de données : je m’en sers pour ajuster les seuils et les poids du moteur — c’est comme ça qu’il s’entraîne entre les versions.</p>';
+      $("doneBody").innerHTML = html;
+      const dlV = document.createElement("button"); dlV.type = "button"; dlV.className = "bigbtn"; dlV.textContent = "Télécharger la vidéo";
+      dlV.onclick = () => { if (!videoBlob) return; const a = document.createElement("a"); a.href = URL.createObjectURL(videoBlob); a.download = "ursly-session" + (recMime.includes("mp4") ? ".mp4" : ".webm"); a.click(); };
+      if (!videoBlob) dlV.style.display = "none";
+      const dlJ = document.createElement("button"); dlJ.type = "button"; dlJ.className = "ghostbtn"; dlJ.textContent = "Télécharger les données (.json)";
+      dlJ.onclick = () => { const payload = JSON.stringify(session, null, 1); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([payload], { type: "application/json" })); a.download = "ursly-session-donnees.json"; a.click(); };
+      const again = document.createElement("button"); again.type = "button"; again.className = "ghostbtn"; again.textContent = "Nouvelle session";
+      again.onclick = () => location.reload();
+      $("doneBody").appendChild(dlV); $("doneBody").appendChild(dlJ); $("doneBody").appendChild(again);
+    }
+    go(0);
   }
 </script>
 
