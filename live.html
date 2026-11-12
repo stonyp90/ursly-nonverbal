@@ -286,20 +286,42 @@
   const roi = document.createElement("canvas"); roi.width = 48; roi.height = 32;
   let t0 = 0, lastSamplePush = 0;
 
-  async function loadVision() {
-    const mod = await import("./assets/mediapipe/vision_bundle.mjs");
-    const vision = await mod.FilesetResolver.forVisionTasks("assets/mediapipe/wasm");
-    const mk = (delegate) => mod.FaceLandmarker.createFromOptions(vision, {
+  let visionMod = null, visionSet = null, visionMode = "landmark-gpu", errStreak = 0, emptySince = 0, degrading = false;
+  async function createLandmarker(delegate) {
+    return visionMod.FaceLandmarker.createFromOptions(visionSet, {
       baseOptions: { modelAssetPath: "assets/mediapipe/face_landmarker.task", delegate },
       runningMode: "VIDEO", numFaces: 1, outputFaceBlendshapes: true,
       minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5 });
-    try { landmarker = await mk("GPU"); }
-    catch (e) { try { landmarker = await mk("CPU"); } catch (e2) { landmarker = null; } }
-    if (!landmarker) {  // repli : le détecteur simple (signaux mouvement seulement)
-      const opts = (delegate) => ({ baseOptions: { modelAssetPath: "assets/mediapipe/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
-      try { detector = await mod.FaceDetector.createFromOptions(vision, opts("GPU")); }
-      catch (e) { detector = await mod.FaceDetector.createFromOptions(vision, opts("CPU")); }
-    }
+  }
+  async function createDetector() {
+    const opts = (delegate) => ({ baseOptions: { modelAssetPath: "assets/mediapipe/blaze_face_short_range.tflite", delegate }, runningMode: "VIDEO", minDetectionConfidence: 0.5 });
+    try { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("GPU")); }
+    catch (e) { return await visionMod.FaceDetector.createFromOptions(visionSet, opts("CPU")); }
+  }
+  async function loadVision() {
+    visionMod = await import("./assets/mediapipe/vision_bundle.mjs");
+    visionSet = await visionMod.FilesetResolver.forVisionTasks("assets/mediapipe/wasm");
+    try { landmarker = await createLandmarker("GPU"); visionMode = "landmark-gpu"; }
+    catch (e) { try { landmarker = await createLandmarker("CPU"); visionMode = "landmark-cpu"; } catch (e2) { landmarker = null; } }
+    if (!landmarker) { detector = await createDetector(); visionMode = "detector"; }
+  }
+  // Si le graphe Landmarker tombe en erreur persistante (état interne corrompu, GPU muet…),
+  // on dégrade proprement : Landmarker CPU, puis détecteur simple. Jamais d'écran mort.
+  async function degrade() {
+    if (degrading) return; degrading = true;
+    try {
+      if (visionMode === "landmark-gpu") {
+        try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
+        landmarker = null; visionMode = "landmark-cpu";
+        landmarker = await createLandmarker("CPU");
+      } else if (visionMode === "landmark-cpu") {
+        try { if (landmarker && landmarker.close) landmarker.close(); } catch (e) {}
+        landmarker = null; visionMode = "detector";
+        detector = await createDetector();
+      }
+      errStreak = 0; emptySince = 0;
+    } catch (e) { /* on réessaiera au prochain trouble */ }
+    degrading = false;
   }
 
   function showError(msg) { const e = $("err"); e.textContent = msg; e.style.display = "block"; }
@@ -377,6 +399,7 @@
     raf = requestAnimationFrame(loop);
     if (cam.readyState < 2 || now - lastDetect < 34) return;
     lastDetect = now;
+    if (cam.videoWidth === 0) return;
     const dt = lastFrameT ? Math.min(100, now - lastFrameT) : 34; lastFrameT = now;
     const stageW = cam.clientWidth, stageH = cam.clientHeight;
     const vw = cam.videoWidth || 1, vh = cam.videoHeight || 1;
@@ -384,9 +407,15 @@
     const offX = (stageW - vw * scale) / 2, offY = (stageH - vh * scale) / 2;
     const toDisp = (rx, ry) => ({ x: stageW - (rx * vw * scale + offX), y: ry * vh * scale + offY });
     let sample = null;
-    try { sample = landmarker ? sampleLandmarker(now) : sampleDetector(now); } catch (e) { /* image pas prête */ }
-    if (!sample) { if (!noFaceSince) noFaceSince = now; track.style.display = "none"; return; }
-    noFaceSince = 0; faceMs += dt;
+    try { sample = landmarker ? sampleLandmarker(now) : sampleDetector(now); errStreak = 0; }
+    catch (e) { errStreak++; if (errStreak >= 3 && visionMode !== "detector") degrade(); }
+    if (!sample) {
+      if (!noFaceSince) noFaceSince = now;
+      if (!emptySince) emptySince = now;
+      else if (now - emptySince > 6000 && faceMs === 0 && visionMode !== "detector" && errStreak === 0) degrade();
+      track.style.display = "none"; return;
+    }
+    noFaceSince = 0; emptySince = 0; faceMs += dt;
     const { rawBox, dispBox, points, bs } = sample;
     if (!box) box = dispBox; else for (const k of ["x", "y", "w", "h"]) box[k] += (dispBox[k] - box[k]) * 0.45;
     pts = points;
